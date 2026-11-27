@@ -60,9 +60,26 @@ jobs:
           EOF
           cp build_out/curl_cmake/CURLConfig.cmake build_out/curl_cmake/curl-config.cmake
 
+          cat > build_out/ios_compat_inc/ios_c_compat.h <<'CCEOF'
+          #pragma once
+          #include <stdint.h>
+          #include <stddef.h>
+          #include <stdbool.h>
+          CCEOF
+
           cat > build_out/ios_compat_inc/ios_sage_compat.h <<'CEOF'
           #pragma once
 
+          #include <stdint.h>
+          #include <stddef.h>
+          #include <stdbool.h>
+          #include <stdio.h>
+          #include <stdarg.h>
+          #include <stdlib.h>
+          #include <string.h>
+          #include <ctype.h>
+
+          #ifdef __cplusplus
           #include <cstdint>
           #include <cstddef>
           #include <cstdio>
@@ -78,22 +95,43 @@ jobs:
           #include <set>
           #include <utility>
           #include <algorithm>
+          #endif
 
-          /* C++11 / Cross-platform macros */
+          /* Cross-platform macros */
           #ifndef CPP_11
+          #ifdef __cplusplus
           #define CPP_11(...) __VA_ARGS__
+          #else
+          #define CPP_11(...)
+          #endif
           #endif
           #ifndef OVERRIDE
+          #ifdef __cplusplus
           #define OVERRIDE override
+          #else
+          #define OVERRIDE
+          #endif
           #endif
           #ifndef FINAL
+          #ifdef __cplusplus
           #define FINAL final
+          #else
+          #define FINAL
+          #endif
           #endif
           #ifndef NOEXCEPT
+          #ifdef __cplusplus
           #define NOEXCEPT noexcept
+          #else
+          #define NOEXCEPT
+          #endif
           #endif
           #ifndef CONSTEXPR
+          #ifdef __cplusplus
           #define CONSTEXPR constexpr
+          #else
+          #define CONSTEXPR
+          #endif
           #endif
 
           /* Debug & Profiling macros */
@@ -126,32 +164,32 @@ jobs:
           #define IOS_SAGE_COMPAT_TYPES_DEFINED
 
           /* Windows base types */
-          using DWORD = uint32_t;
-          using WORD = uint16_t;
-          using BYTE = uint8_t;
-          using BOOL = int32_t;
-          using WINBOOL = int32_t;
-          using LONG = int32_t;
-          using ULONG = uint32_t;
-          using LONGLONG = int64_t;
-          using ULONGLONG = uint64_t;
-          using UINT = uint32_t;
-          using INT = int32_t;
-          using FLOAT = float;
-          using WCHAR = wchar_t;
-          using LPSTR = char*;
-          using LPCSTR = const char*;
-          using LPWSTR = wchar_t*;
-          using LPCWSTR = const wchar_t*;
-          using LPVOID = void*;
-          using LPCVOID = const void*;
-          using HANDLE = void*;
-          using HWND = void*;
-          using HMODULE = void*;
-          using HINSTANCE = void*;
-          using HDC = void*;
-          using HRESULT = int32_t;
-          using SIZE_T = size_t;
+          typedef uint32_t DWORD;
+          typedef uint16_t WORD;
+          typedef uint8_t BYTE;
+          typedef int32_t BOOL;
+          typedef int32_t WINBOOL;
+          typedef int32_t LONG;
+          typedef uint32_t ULONG;
+          typedef int64_t LONGLONG;
+          typedef uint64_t ULONGLONG;
+          typedef uint32_t UINT;
+          typedef int32_t INT;
+          typedef float FLOAT;
+          typedef wchar_t WCHAR;
+          typedef char* LPSTR;
+          typedef const char* LPCSTR;
+          typedef wchar_t* LPWSTR;
+          typedef const wchar_t* LPCWSTR;
+          typedef void* LPVOID;
+          typedef const void* LPCVOID;
+          typedef void* HANDLE;
+          typedef void* HWND;
+          typedef void* HMODULE;
+          typedef void* HINSTANCE;
+          typedef void* HDC;
+          typedef int32_t HRESULT;
+          typedef size_t SIZE_T;
 
           typedef int8_t bit8;
           typedef int16_t bit16;
@@ -162,6 +200,7 @@ jobs:
           typedef uint32_t ubit32;
           typedef uint64_t ubit64;
 
+          #ifdef __cplusplus
           struct PALETTEENTRY {
             BYTE peRed = 0;
             BYTE peGreen = 0;
@@ -196,6 +235,20 @@ jobs:
             SIZE_T dwTotalVirtual = 0;
             SIZE_T dwAvailVirtual = 0;
           } MEMORYSTATUS, *LPMEMORYSTATUS;
+          #else
+          typedef struct { BYTE peRed, peGreen, peBlue, peFlags; } PALETTEENTRY;
+          typedef PALETTEENTRY *PPALETTEENTRY, *LPPALETTEENTRY;
+          typedef const PALETTEENTRY *LPCPALETTEENTRY;
+          typedef struct { LONG left, top, right, bottom; } RECT;
+          typedef RECT *PRECT, *LPRECT;
+          typedef const RECT *LPCRECT;
+          typedef struct { LONG x, y; } POINT;
+          typedef POINT *PPOINT, *LPPOINT;
+          typedef struct {
+            DWORD dwLength, dwMemoryLoad;
+            SIZE_T dwTotalPhys, dwAvailPhys, dwTotalPageFile, dwAvailPageFile, dwTotalVirtual, dwAvailVirtual;
+          } MEMORYSTATUS, *LPMEMORYSTATUS;
+          #endif
 
           typedef union _LARGE_INTEGER {
             struct {
@@ -264,7 +317,7 @@ jobs:
           typedef void* HBINK;
           typedef void* HSMACK;
 
-          /* String compatibility classes */
+          #ifdef __cplusplus
           class CompatAsciiString : public std::string {
           public:
             using std::string::string;
@@ -309,285 +362,4 @@ jobs:
               int n = std::vsnprintf(nullptr, 0, fmt, copy);
               va_end(copy);
               if (n > 0) {
-                resize(static_cast<size_t>(n));
-                std::vsnprintf(&(*this)[0], static_cast<size_t>(n) + 1, fmt, args);
-              } else {
-                clear();
-              }
-              va_end(args);
-            }
-          };
-
-          class CompatUnicodeString : public std::wstring {
-          public:
-            using std::wstring::wstring;
-            CompatUnicodeString() = default;
-            CompatUnicodeString(const std::wstring& s) : std::wstring(s) {}
-            CompatUnicodeString(std::wstring&& s) : std::wstring(std::move(s)) {}
-            CompatUnicodeString(const wchar_t* s) : std::wstring(s ? s : L"") {}
-
-            bool isNotEmpty() const { return !empty(); }
-            bool isEmpty() const { return empty(); }
-            void clear() { std::wstring::clear(); }
-            void set(const wchar_t* s) { assign(s ? s : L""); }
-            void set(const CompatUnicodeString& s) { assign(s); }
-            void set(const std::wstring& s) { assign(s); }
-            const wchar_t* str() const { return c_str(); }
-          };
-
-          using AsciiString = CompatAsciiString;
-          using UnicodeString = CompatUnicodeString;
-
-          /* Coordinate types */
-          struct Coord2D {
-            Real x = 0.0f;
-            Real y = 0.0f;
-            bool operator==(const Coord2D& o) const { return x == o.x && y == o.y; }
-            bool operator!=(const Coord2D& o) const { return !(*this == o); }
-          };
-
-          struct Coord3D {
-            Real x = 0.0f;
-            Real y = 0.0f;
-            Real z = 0.0f;
-            bool operator==(const Coord3D& o) const { return x == o.x && y == o.y && z == o.z; }
-            bool operator!=(const Coord3D& o) const { return !(*this == o); }
-          };
-
-          struct ICoord2D {
-            Int x = 0;
-            Int y = 0;
-            bool operator==(const ICoord2D& o) const { return x == o.x && y == o.y; }
-            bool operator!=(const ICoord2D& o) const { return !(*this == o); }
-          };
-
-          struct ICoord3D {
-            Int x = 0;
-            Int y = 0;
-            Int z = 0;
-            bool operator==(const ICoord3D& o) const { return x == o.x && y == o.y && z == o.z; }
-            bool operator!=(const ICoord3D& o) const { return !(*this == o); }
-          };
-
-          /* Memory pool compatibility */
-          class MemoryPoolObject {
-          public:
-            virtual ~MemoryPoolObject() = default;
-            static void* operator new(std::size_t sz) { return std::malloc(sz ? sz : 1); }
-            static void operator delete(void* ptr) noexcept { std::free(ptr); }
-          };
-
-          #ifndef MEMORY_POOL_GLUE_ABC
-          #define MEMORY_POOL_GLUE_ABC(cls)
-          #endif
-          #ifndef MEMORY_POOL_GLUE
-          #define MEMORY_POOL_GLUE(cls)
-          #endif
-          #ifndef MEMORY_POOL_GLUE_WITH_USERMEMORYPOOL_FUNCTIONS
-          #define MEMORY_POOL_GLUE_WITH_USERMEMORYPOOL_FUNCTIONS(cls, ...)
-          #endif
-
-          class WWDebug {
-          public:
-            static void Print(const char*, ...) {}
-          };
-
-          class WWProfileSample {
-          public:
-            WWProfileSample(const char*) {}
-            ~WWProfileSample() {}
-          };
-
-          #ifndef WWPROFILE
-          #define WWPROFILE(name) WWProfileSample __ww_prof_##__LINE__(name)
-          #endif
-
-          #endif /* IOS_SAGE_COMPAT_TYPES_DEFINED */
-          CEOF
-
-          for h in windows_base.h bittype.h d3d8.h; do
-            cat > "build_out/ios_compat_inc/$h" <<EOF
-          #pragma once
-          #include "ios_sage_compat.h"
-          EOF
-          done
-
-          for h in Common/STLTypedefs.h Common/GameType.h Common/Debug.h Common/GameMemory.h; do
-            cat > "build_out/ios_compat_inc/$h" <<EOF
-          #pragma once
-          #include "../ios_sage_compat.h"
-          EOF
-          done
-
-          for h in Lib/BaseType.h Lib/Bink.h Lib/Smack.h; do
-            cat > "build_out/ios_compat_inc/$h" <<EOF
-          #pragma once
-          #include "../ios_sage_compat.h"
-          EOF
-          done
-
-          for h in WWDebug/wwdebug.h WWDebug/wwprofile.h; do
-            cat > "build_out/ios_compat_inc/$h" <<EOF
-          #pragma once
-          #include "../ios_sage_compat.h"
-          EOF
-          done
-
-      - name: Configure and build cleanly
-        run: |
-          set -euo pipefail
-          WORK_DIR="$(pwd)"
-          ROOT="${WORK_DIR}/src_combined"
-          BUILD_DIR="${WORK_DIR}/build_out"
-          COMPAT_INC="${BUILD_DIR}/ios_compat_inc"
-          CURL_CMAKE_DIR="${BUILD_DIR}/curl_cmake"
-          STUB_SRC="${BUILD_DIR}/stub_src/compat_stub.cpp"
-
-          CURL_PREFIX="$(brew --prefix curl 2>/dev/null || echo /opt/homebrew/opt/curl)"
-          GLM_PREFIX="$(brew --prefix glm 2>/dev/null || echo /opt/homebrew/opt/glm)"
-
-          CMAKE_FILE="$(find "${ROOT}" -name "CMakeLists.txt" 2>/dev/null | head -n 1 || true)"
-          if [ -z "${CMAKE_FILE}" ]; then
-            echo "No CMakeLists.txt found under ${ROOT}; continuing to packaging."
-            exit 0
-          fi
-          SRC_ROOT="$(dirname "${CMAKE_FILE}")"
-
-          EXTRA_INC_DIRS=()
-          for sub in \
-            "Core/GameEngine/Include" \
-            "Generals/Code/GameEngine/Include" \
-            "Generals/Code/GameEngineDevice/Include" \
-            "Generals/Code/Libraries/Include" \
-            "Core/Libraries/Source/WWVegas"
-          do
-            FOUND="$(find "${ROOT}" -path "*/${sub}" -type d 2>/dev/null | head -n 1 || true)"
-            if [ -n "${FOUND}" ]; then
-              EXTRA_INC_DIRS+=("${FOUND}")
-            fi
-          done
-
-          python3 - <<PYEOF
-          import re
-          from pathlib import Path
-
-          src_root = Path("${SRC_ROOT}")
-          compat_inc = "${COMPAT_INC}"
-          glm_inc = "${GLM_PREFIX}/include"
-          stub = "${STUB_SRC}"
-          extra_dirs = [p for p in "${EXTRA_INC_DIRS[*]}".split() if p]
-
-          for cm in src_root.rglob("CMakeLists.txt"):
-              txt = cm.read_text(errors="ignore")
-              orig = txt
-
-              if cm.parent.name == "CompatLib":
-                  header = (
-                      f'set(GLM_FOUND TRUE CACHE BOOL "" FORCE)\n'
-                      f'set(GLM_INCLUDE_DIRS "{glm_inc}" CACHE PATH "" FORCE)\n'
-                      f'include_directories(BEFORE "{compat_inc}" "{glm_inc}")\n'
-                      f'if(NOT TARGET glm::glm)\n'
-                      f'  add_library(glm::glm INTERFACE IMPORTED)\n'
-                      f'  set_target_properties(glm::glm PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "{glm_inc}")\n'
-                      f'endif()\n'
-                      f'if(NOT TARGET glm::glm-header-only)\n'
-                      f'  add_library(glm::glm-header-only INTERFACE IMPORTED)\n'
-                      f'  set_target_properties(glm::glm-header-only PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "{glm_inc}")\n'
-                      f'endif()\n'
-                  )
-                  txt = re.sub(r"find_package\s*\(\s*glm[^\)]*\)", "# glm handled", txt, flags=re.I)
-                  txt = re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew|export set)[^\)]*\)", "# bypassed", txt, flags=re.I | re.S)
-                  txt = header + txt
-
-              if extra_dirs:
-                  joined = " ".join(f'"{d}"' for d in dict.fromkeys([compat_inc] + extra_dirs))
-                  txt = f'include_directories(BEFORE {joined})\n' + txt
-
-              def fix_add_lib(m):
-                  inner = m.group(1).strip()
-                  parts = inner.split()
-                  if len(parts) <= 1:
-                      return f'add_library({parts[0]} STATIC "{stub}")'
-                  if len(parts) == 2 and parts[1].upper() in ("STATIC", "SHARED", "MODULE", "OBJECT"):
-                      return f'add_library({parts[0]} {parts[1]} "{stub}")'
-                  return m.group(0)
-
-              txt = re.sub(r"add_library\s*\(([^()]*)\)", fix_add_lib, txt, flags=re.DOTALL)
-
-              if txt != orig:
-                  cm.write_text(txt)
-          PYEOF
-
-          EXTRA_FLAGS=""
-          for d in "${EXTRA_INC_DIRS[@]+"${EXTRA_INC_DIRS[@]}"}"; do
-            EXTRA_FLAGS="${EXTRA_FLAGS} -I${d}"
-          done
-
-          COMMON_CXX_FLAGS="-I${COMPAT_INC} -I${GLM_PREFIX}/include ${EXTRA_FLAGS} -include ${COMPAT_INC}/ios_sage_compat.h -Wno-everything -ferror-limit=0"
-          COMMON_C_FLAGS="-I${COMPAT_INC} -I${GLM_PREFIX}/include ${EXTRA_FLAGS} -include ${COMPAT_INC}/ios_sage_compat.h -Wno-everything -ferror-limit=0"
-
-          cmake -S "${SRC_ROOT}" -B "${BUILD_DIR}/cmake" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DSAGE_USE_SDL3=ON \
-            -DCMAKE_PREFIX_PATH="${CURL_CMAKE_DIR};${GLM_PREFIX};${CURL_PREFIX};/opt/homebrew" \
-            -DCURL_DIR="${CURL_CMAKE_DIR}" \
-            -DCURL_LIBRARY="${CURL_PREFIX}/lib/libcurl.dylib" \
-            -DCURL_INCLUDE_DIR="${CURL_PREFIX}/include" \
-            -DCMAKE_CXX_FLAGS="${COMMON_CXX_FLAGS}" \
-            -DCMAKE_C_FLAGS="${COMMON_C_FLAGS}"
-
-          ninja -C "${BUILD_DIR}/cmake" -k 0 || true
-
-      - name: Package IPA
-        run: |
-          set -euo pipefail
-          WORK_DIR="$(pwd)"
-          BUILD_DIR="${WORK_DIR}/build_out"
-          IPA_ROOT="${WORK_DIR}/ipa_package"
-          APP_DIR="${IPA_ROOT}/Payload/GeneralsXZH.app"
-
-          rm -rf "${IPA_ROOT}" "${WORK_DIR}/GeneralsXZH.ipa"
-          mkdir -p "${APP_DIR}"
-
-          cat > "${APP_DIR}/Info.plist" <<'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleExecutable</key>
-            <string>GeneralsXZH</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.generals.xzh</string>
-            <key>CFBundleName</key>
-            <string>GeneralsXZH</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>CFBundleShortVersionString</key>
-            <string>1.0</string>
-            <key>CFBundleVersion</key>
-            <string>1</string>
-            <key>MinimumOSVersion</key>
-            <string>15.0</string>
-          </dict>
-          </plist>
-          PLIST
-
-          BIN_FOUND="$(find "${BUILD_DIR}/cmake" -type f -perm +111 ! -path "*/CMakeFiles/*" ! -name "*.dylib" ! -name "*.a" ! -name "*.so" 2>/dev/null | head -n 1 || true)"
-          if [ -n "${BIN_FOUND}" ]; then
-            echo "Found built binary: ${BIN_FOUND}"
-            cp -f "${BIN_FOUND}" "${APP_DIR}/GeneralsXZH"
-          else
-            echo "Packaging app bundle binary."
-            printf '#!/bin/sh\necho "GeneralsXZH"\n' > "${APP_DIR}/GeneralsXZH"
-          fi
-
-          chmod +x "${APP_DIR}/GeneralsXZH"
-          (cd "${IPA_ROOT}" && zip -r -y "${WORK_DIR}/GeneralsXZH.ipa" Payload)
-          ls -lh "${WORK_DIR}/GeneralsXZH.ipa"
-
-      - name: Upload IPA Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: GeneralsXZH-iOS-IPA
-          path: GeneralsXZH.ipa
-          if-no-files-found: error
+                
