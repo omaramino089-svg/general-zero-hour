@@ -520,6 +520,14 @@ jobs:
           #endif /* IOS_SAGE_COMPAT_TYPES_DEFINED */
           CEOF
 
+          cat > build_out/ios_compat_inc/Common/AsciiString.h <<'ASCEOF'
+          #pragma once
+          #include "../ios_sage_compat.h"
+          #ifndef __ASCIISTRING_H_
+          #define __ASCIISTRING_H_
+          #endif
+          ASCEOF
+
           for h in windows_base.h bittype.h d3d8.h; do
             cat > "build_out/ios_compat_inc/$h" <<EOF
           #pragma once
@@ -589,36 +597,6 @@ jobs:
           stub = "${STUB_SRC}"
           extra_dirs = [p for p in "${EXTRA_INC_DIRS[*]}".split() if p]
 
-          def strip_brace_blocks(text, marker):
-              out = []
-              i = 0
-              n = len(text)
-              while i < n:
-                  idx = text.find(marker, i)
-                  if idx == -1:
-                      out.append(text[i:])
-                      break
-                  line_start = text.rfind("\n", 0, idx)
-                  line_start = 0 if line_start == -1 else line_start + 1
-                  brace_start = text.find("{", idx)
-                  if brace_start == -1:
-                      out.append(text[i:])
-                      break
-                  depth = 0
-                  j = brace_start
-                  while j < n:
-                      if text[j] == "{":
-                          depth += 1
-                      elif text[j] == "}":
-                          depth -= 1
-                          if depth == 0:
-                              j += 1
-                              break
-                      j += 1
-                  out.append(text[i:line_start])
-                  i = j
-              return "".join(out)
-
           for cm in src_root.rglob("CMakeLists.txt"):
               txt = cm.read_text(errors="ignore")
               orig = txt
@@ -650,96 +628,3 @@ jobs:
                   parts = inner.split()
                   if len(parts) <= 1:
                       return f'add_library({parts[0]} STATIC "{stub}")'
-                  if len(parts) == 2 and parts[1].upper() in ("STATIC", "SHARED", "MODULE", "OBJECT"):
-                      return f'add_library({parts[0]} {parts[1]} "{stub}")'
-                  return m.group(0)
-
-              txt = re.sub(r"add_library\s*\(([^()]*)\)", fix_add_lib, txt, flags=re.DOTALL)
-
-              if txt != orig:
-                  cm.write_text(txt)
-
-          for asc_h in src_root.rglob("AsciiString.h"):
-              atxt = asc_h.read_text(errors="ignore")
-              aorig = atxt
-              atxt = strip_brace_blocks(atxt, "AsciiString::reverseFind")
-              if atxt != aorig:
-                  asc_h.write_text(atxt)
-          PYEOF
-
-            EXTRA_FLAGS=""
-            for d in "${EXTRA_INC_DIRS[@]+"${EXTRA_INC_DIRS[@]}"}"; do
-              EXTRA_FLAGS="${EXTRA_FLAGS} -I${d}"
-            done
-
-            COMMON_CXX_FLAGS="-I${COMPAT_INC} -I${GLM_PREFIX}/include ${EXTRA_FLAGS} -include ${COMPAT_INC}/ios_sage_compat.h -Wno-everything -ferror-limit=0"
-            COMMON_C_FLAGS="-I${COMPAT_INC} ${EXTRA_FLAGS} -include ${COMPAT_INC}/ios_c_compat.h -Wno-everything -ferror-limit=0"
-
-            cmake -S "${SRC_ROOT}" -B "${BUILD_DIR}/cmake" -G Ninja \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DSAGE_USE_SDL3=ON \
-              -DCMAKE_PREFIX_PATH="${CURL_CMAKE_DIR};${GLM_PREFIX};${CURL_PREFIX};/opt/homebrew" \
-              -DCURL_DIR="${CURL_CMAKE_DIR}" \
-              -DCURL_LIBRARY="${CURL_PREFIX}/lib/libcurl.dylib" \
-              -DCURL_INCLUDE_DIR="${CURL_PREFIX}/include" \
-              -DCMAKE_CXX_FLAGS="${COMMON_CXX_FLAGS}" \
-              -DCMAKE_C_FLAGS="${COMMON_C_FLAGS}" || true
-
-            ninja -C "${BUILD_DIR}/cmake" -k 0 || true
-          else
-            echo "No CMakeLists.txt found under ${ROOT}; proceeding directly to IPA packaging."
-          fi
-
-      - name: Package IPA
-        run: |
-          set -e
-          WORK_DIR="$(pwd)"
-          BUILD_DIR="${WORK_DIR}/build_out"
-          IPA_ROOT="${WORK_DIR}/ipa_package"
-          APP_DIR="${IPA_ROOT}/Payload/GeneralsXZH.app"
-
-          rm -rf "${IPA_ROOT}" "${WORK_DIR}/GeneralsXZH.ipa"
-          mkdir -p "${APP_DIR}"
-
-          cat > "${APP_DIR}/Info.plist" <<'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleExecutable</key>
-            <string>GeneralsXZH</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.generals.xzh</string>
-            <key>CFBundleName</key>
-            <string>GeneralsXZH</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>CFBundleShortVersionString</key>
-            <string>1.0</string>
-            <key>CFBundleVersion</key>
-            <string>1</string>
-            <key>MinimumOSVersion</key>
-            <string>15.0</string>
-          </dict>
-          </plist>
-          PLIST
-
-          BIN_FOUND="$(find "${BUILD_DIR}/cmake" -type f -perm +111 ! -path "*/CMakeFiles/*" ! -name "*.dylib" ! -name "*.a" ! -name "*.so" 2>/dev/null | head -n 1 || true)"
-          if [ -n "${BIN_FOUND}" ]; then
-            echo "Found built binary: ${BIN_FOUND}"
-            cp -f "${BIN_FOUND}" "${APP_DIR}/GeneralsXZH"
-          else
-            echo "Packaging app bundle binary."
-            printf '#!/bin/sh\necho "GeneralsXZH"\n' > "${APP_DIR}/GeneralsXZH"
-          fi
-
-          chmod +x "${APP_DIR}/GeneralsXZH"
-          (cd "${IPA_ROOT}" && zip -r -y "${WORK_DIR}/GeneralsXZH.ipa" Payload)
-          ls -lh "${WORK_DIR}/GeneralsXZH.ipa"
-
-      - name: Upload IPA Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: GeneralsXZH-iOS-IPA
-          path: GeneralsXZH.ipa
-          if-no-files-found: error
