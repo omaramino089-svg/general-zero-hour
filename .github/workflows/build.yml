@@ -12,14 +12,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unpack and inspect archives
+      - name: Unpack archives
         run: |
           mkdir -p src_combined
           for z in *.zip; do
             echo "Extracting $z..."
             unzip -q -o "$z" -d src_combined
           done
-          echo "--- Top level of src_combined ---"
-          ls -la src_combined
-          echo "--- Search for CMakeLists.txt, ios, scripts ---"
-          find src_combined -maxdepth 4 \( -name "CMakeLists.txt" -o -name "ios" -o -name "scripts" \)
+
+      - name: Inspect iOS and scripts folders
+        run: |
+          echo "=== Contents of src_combined/ios ==="
+          ls -la src_combined/ios 2>/dev/null || echo "No src_combined/ios"
+          echo "=== Contents of src_combined/scripts ==="
+          ls -la src_combined/scripts 2>/dev/null || echo "No src_combined/scripts"
+          echo "=== Xcode projects / workspaces / plists ==="
+          find src_combined -maxdepth 4 \( -name "*.xcodeproj" -o -name "*.xcworkspace" -o -name "*ios*" -o -name "*script*" \)
