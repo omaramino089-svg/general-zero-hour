@@ -20,15 +20,69 @@ jobs:
             unzip -q -o "$z" -d src_combined
           done
 
-      - name: Inspect project.yml and build scripts
+      - name: Install tools
         run: |
-          echo "=== ios/project.yml ==="
-          cat src_combined/ios/project.yml 2>/dev/null || echo "No ios/project.yml"
-          echo "=== scripts/build ==="
-          ls -la src_combined/scripts/build 2>/dev/null || echo "No scripts/build"
-          for f in src_combined/scripts/build/*; do
-            if [ -f "$f" ]; then
-              echo "--- File: $f ---"
-              cat "$f"
+          brew install xcodegen cmake ninja || true
+
+      - name: Build engine and generate iOS IPA
+        run: |
+          set -e
+          ROOT="$(pwd)/src_combined"
+          BUILD_DIR="$(pwd)/build_out"
+          IPA_ROOT="$(pwd)/ipa_package"
+          mkdir -p "$BUILD_DIR" "$IPA_ROOT/Payload"
+
+          # 1) إذا وُجد سكربت بناء أو تغليف مخصص لـ iOS نستخدمه أولاً، وإلا ننفذ البناء المباشر
+          if [ -f "$ROOT/scripts/build/package-ios.sh" ]; then
+            chmod +x "$ROOT/scripts/build/"*.sh || true
+            "$ROOT/scripts/build/package-ios.sh" || true
+          fi
+
+          # 2) بناء المحرك عبر CMake إن أمكن
+          if [ -f "$ROOT/CMakeLists.txt" ]; then
+            cmake -S "$ROOT" -B "$BUILD_DIR/cmake" -G Ninja -DCMAKE_BUILD_TYPE=Release || \
+            cmake -S "$ROOT" -B "$BUILD_DIR/cmake" -DCMAKE_BUILD_TYPE=Release || true
+            cmake --build "$BUILD_DIR/cmake" --parallel || true
+          fi
+
+          # 3) توليد مشروع Xcode عبر XcodeGen داخل مجلد ios وبناؤه لـ iOS بدون توقيع إجباري
+          if [ -f "$ROOT/ios/project.yml" ]; then
+            cd "$ROOT/ios"
+            xcodegen generate
+            xcodebuild \
+              -project GeneralsXZH.xcodeproj \
+              -scheme GeneralsXZH \
+              -sdk iphoneos \
+              -configuration Release \
+              -derivedDataPath "$BUILD_DIR/derived" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              AD_HOC_CODE_SIGNING_ALLOWED=YES \
+              build
+          fi
+
+          # 4) البحث عن ملف .app الناتج وتضمين أي binary مبني من CMake ثم حزمه في .ipa
+          APP_PATH=$(find "$BUILD_DIR" -name "*.app" -type d | head -n 1)
+          if [ -n "$APP_PATH" ]; then
+            ENGINE_BIN=$(find "$BUILD_DIR/cmake" -maxdepth 4 -type f -perm +111 \( -name "*generals*" -o -name "*Generals*" \) 2>/dev/null | head -n 1 || true)
+            if [ -n "$ENGINE_BIN" ]; then
+              APP_BIN_NAME=$(basename "$APP_PATH" .app)
+              cp -f "$ENGINE_BIN" "$APP_PATH/$APP_BIN_NAME" || true
+              chmod +x "$APP_PATH/$APP_BIN_NAME" || true
             fi
-          done
+            cp -R "$APP_PATH" "$IPA_ROOT/Payload/"
+            cd "$IPA_ROOT"
+            zip -r -y "$(pwd)/../GeneralsXZH.ipa" Payload
+            ls -lh "$(pwd)/../GeneralsXZH.ipa"
+          else
+            echo "ERROR: No .app bundle was produced."
+            exit 1
+          fi
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GeneralsXZH-iOS-IPA
+          path: GeneralsXZH.ipa
+          if-no-files-found: error
