@@ -1,17 +1,14 @@
 name: Build iOS IPA
-
 on:
   workflow_dispatch:
   push:
     branches: [ "main" ]
-
 jobs:
   build:
     runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Unpack archives
         run: |
           mkdir -p src_combined
@@ -19,11 +16,9 @@ jobs:
             echo "Extracting $z..."
             unzip -q -o "$z" -d src_combined
           done
-
       - name: Install tools
         run: |
           brew install xcodegen cmake ninja sdl3 curl glm
-
       - name: Build engine and generate iOS IPA
         run: |
           set -e
@@ -31,12 +26,10 @@ jobs:
           BUILD_DIR="$(pwd)/build_out"
           IPA_ROOT="$(pwd)/ipa_package"
           mkdir -p "$BUILD_DIR" "$IPA_ROOT/Payload"
-
           CURL_PREFIX="$(brew --prefix curl)"
           GLM_PREFIX="$(brew --prefix glm)"
           CURL_CMAKE_DIR="$BUILD_DIR/curl_cmake"
           mkdir -p "$CURL_CMAKE_DIR"
-
           cat > "$CURL_CMAKE_DIR/CURLConfig.cmake" <<EOF
           include_guard(GLOBAL)
           set(CURL_FOUND TRUE)
@@ -51,68 +44,65 @@ jobs:
           endif()
           EOF
           cp "$CURL_CMAKE_DIR/CURLConfig.cmake" "$CURL_CMAKE_DIR/curl-config.cmake"
-
+          WIN_BASE_HDR="$(find "$ROOT" -name "windows_base.h" 2>/dev/null | head -n 1 || true)"
+          EXTRA_INC=""
+          if [ -n "$WIN_BASE_HDR" ]; then
+            WIN_BASE_DIR="$(dirname "$WIN_BASE_HDR")"
+            EXTRA_INC="$WIN_BASE_DIR"
+            echo "Found windows_base.h at: $WIN_BASE_DIR"
+          else
+            WIN_BASE_DIR="$BUILD_DIR/win_compat_inc"
+            mkdir -p "$WIN_BASE_DIR"
+            cat > "$WIN_BASE_DIR/windows_base.h" <<'WEOF'
+          #pragma once
+          #include <cstdint>
+          #include <cstring>
+          using DWORD = uint32_t;
+          using WORD = uint16_t;
+          using BYTE = uint8_t;
+          using BOOL = int32_t;
+          using WINBOOL = int32_t;
+          using LONG = int32_t;
+          using ULONG = uint32_t;
+          using LONGLONG = int64_t;
+          using ULONGLONG = uint64_t;
+          using UINT = uint32_t;
+          using INT = int32_t;
+          using WCHAR = wchar_t;
+          using LPSTR = char*;
+          using LPCSTR = const char*;
+          using LPWSTR = wchar_t*;
+          using LPCWSTR = const wchar_t*;
+          using LPVOID = void*;
+          using LPCVOID = const void*;
+          using HANDLE = void*;
+          typedef union _LARGE_INTEGER {
+            struct { DWORD LowPart; LONG HighPart; };
+            long long QuadPart;
+          } LARGE_INTEGER;
+          typedef union _ULARGE_INTEGER {
+            struct { DWORD LowPart; DWORD HighPart; };
+            unsigned long long QuadPart;
+          } ULARGE_INTEGER;
+          #ifndef TRUE
+          #define TRUE 1
+          #endif
+          #ifndef FALSE
+          #define FALSE 0
+          #endif
+          WEOF
+            EXTRA_INC="$WIN_BASE_DIR"
+            echo "Created fallback windows_base.h at: $WIN_BASE_DIR"
+          fi
           COMPAT_CMAKE="$ROOT/GeneralsMD/Code/CompatLib/CMakeLists.txt"
           if [ -f "$COMPAT_CMAKE" ]; then
             echo "Patching CompatLib"
-            python3 -c 'import pathlib,re,sys;p=pathlib.Path(sys.argv[1]);inc=sys.argv[2];s=p.read_text(errors="ignore");h=f"set(GLM_FOUND TRUE CACHE BOOL \"\" FORCE)\nset(glm_FOUND TRUE CACHE BOOL \"\" FORCE)\nset(GLM_INCLUDE_DIRS \"{inc}\" CACHE PATH \"\" FORCE)\ninclude_directories(\"{inc}\")\nif(NOT TARGET glm::glm)\nadd_library(glm::glm INTERFACE IMPORTED)\nset_target_properties(glm::glm PROPERTIES INTERFACE_INCLUDE_DIRECTORIES \"{inc}\")\nendif()\nif(NOT TARGET glm::glm-header-only)\nadd_library(glm::glm-header-only INTERFACE IMPORTED)\nset_target_properties(glm::glm-header-only PROPERTIES INTERFACE_INCLUDE_DIRECTORIES \"{inc}\")\nendif()\n";s=re.sub(r"find_package\s*\(\s*glm[^\)]*\)","# glm handled",s,flags=re.I);s=re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew|export set)[^\)]*\)","# glm bypassed",s,flags=re.I|re.S);p.write_text(h+s)' "$COMPAT_CMAKE" "$GLM_PREFIX/include"
+            python3 -c 'import pathlib,re,sys;p=pathlib.Path(sys.argv[1]);inc=sys.argv[2];winc=sys.argv[3];s=p.read_text(errors="ignore");h=f"set(GLM_FOUND TRUE CACHE BOOL \"\" FORCE)\nset(GLM_INCLUDE_DIRS \"{inc}\" CACHE PATH \"\" FORCE)\ninclude_directories(\"{inc}\" \"{winc}\")\nif(NOT TARGET glm::glm)\nadd_library(glm::glm INTERFACE IMPORTED)\nset_target_properties(glm::glm PROPERTIES INTERFACE_INCLUDE_DIRECTORIES \"{inc}\")\nendif()\nif(NOT TARGET glm::glm-header-only)\nadd_library(glm::glm-header-only INTERFACE IMPORTED)\nset_target_properties(glm::glm-header-only PROPERTIES INTERFACE_INCLUDE_DIRECTORIES \"{inc}\")\nendif()\n";s=re.sub(r"find_package\s*\(\s*glm[^\)]*\)","# glm handled",s,flags=re.I);s=re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew|export set)[^\)]*\)","# glm bypassed",s,flags=re.I|re.S);p.write_text(h+s)' "$COMPAT_CMAKE" "$GLM_PREFIX/include" "$EXTRA_INC"
           fi
-
           if [ -f "$ROOT/CMakeLists.txt" ]; then
             echo "=== Configuring CMake ==="
             cmake -S "$ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
               -DSAGE_USE_SDL3=ON \
               -DCMAKE_PREFIX_PATH="$CURL_CMAKE_DIR;$GLM_PREFIX;$CURL_PREFIX;/opt/homebrew" \
-              -DCURL_DIR="$CURL_CMAKE_DIR" \
-              -DCURL_LIBRARY="$CURL_PREFIX/lib/libcurl.dylib" \
-              -DCURL_INCLUDE_DIR="$CURL_PREFIX/include" \
-              -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include" \
-              -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include"
-            echo "=== Building CMake targets ==="
-            cmake --build "$BUILD_DIR/cmake" --parallel
-          fi
-
-          if [ -f "$ROOT/ios/project.yml" ]; then
-            echo "=== Generating and building Xcode project ==="
-            cd "$ROOT/ios"
-            xcodegen generate
-            xcodebuild \
-              -project GeneralsXZH.xcodeproj \
-              -scheme GeneralsXZH \
-              -sdk iphoneos \
-              -configuration Release \
-              -derivedDataPath "$BUILD_DIR/derived" \
-              CODE_SIGNING_ALLOWED=NO \
-              CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGN_IDENTITY="" \
-              AD_HOC_CODE_SIGNING_ALLOWED=YES \
-              build
-          fi
-
-          APP_PATH=$(find "$BUILD_DIR" -name "*.app" -type d | head -n 1)
-          if [ -n "$APP_PATH" ]; then
-            echo "=== Found app: $APP_PATH ==="
-            ls -lh "$APP_PATH"
-            ENGINE_BIN=$(find "$BUILD_DIR/cmake" -type f -perm +111 \( -name "*generals*" -o -name "*Generals*" -o -name "*z_generals*" \) 2>/dev/null | head -n 1 || true)
-            if [ -n "$ENGINE_BIN" ]; then
-              echo "Replacing binary with: $ENGINE_BIN"
-              APP_BIN_NAME=$(basename "$APP_PATH" .app)
-              cp -f "$ENGINE_BIN" "$APP_PATH/$APP_BIN_NAME"
-              chmod +x "$APP_PATH/$APP_BIN_NAME"
-            fi
-            cp -R "$APP_PATH" "$IPA_ROOT/Payload/"
-            cd "$IPA_ROOT"
-            zip -r -y "$(pwd)/../GeneralsXZH.ipa" Payload
-            ls -lh "$(pwd)/../GeneralsXZH.ipa"
-          else
-            echo "ERROR: No .app bundle was produced."
-            exit 1
-          fi
-
-      - name: Upload IPA Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: GeneralsXZH-iOS-IPA
-          path: GeneralsXZH.ipa
-          if-no-files-found: error
+              -DCURL_DIR="$CURL_CMAKE_DIR"
