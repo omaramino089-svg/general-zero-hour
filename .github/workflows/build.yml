@@ -35,8 +35,7 @@ jobs:
           CURL_PREFIX="$(brew --prefix curl)"
           GLM_PREFIX="$(brew --prefix glm)"
           FAKE_CMAKE_DIR="$BUILD_DIR/fake_cmake"
-          ALT_CMAKE_DIR="$BUILD_DIR/alt_cmake"
-          mkdir -p "$FAKE_CMAKE_DIR" "$ALT_CMAKE_DIR"
+          mkdir -p "$FAKE_CMAKE_DIR"
 
           cat > "$FAKE_CMAKE_DIR/CURLConfig.cmake" <<EOF
           include_guard(GLOBAL)
@@ -51,26 +50,27 @@ jobs:
             )
           endif()
           EOF
-          cp "$FAKE_CMAKE_DIR/CURLConfig.cmake" "$ALT_CMAKE_DIR/curl-config.cmake"
 
-          cat > "$FAKE_CMAKE_DIR/FindGLM.cmake" <<EOF
-          set(GLM_FOUND TRUE)
-          set(glm_FOUND TRUE)
-          set(GLM_INCLUDE_DIRS "$GLM_PREFIX/include")
-          if(NOT TARGET glm::glm)
-            add_library(glm::glm INTERFACE IMPORTED)
-            set_target_properties(glm::glm PROPERTIES
-              INTERFACE_INCLUDE_DIRECTORIES "$GLM_PREFIX/include"
-            )
-          endif()
-          EOF
-          cp "$FAKE_CMAKE_DIR/FindGLM.cmake" "$ALT_CMAKE_DIR/Findglm.cmake"
-          cp "$FAKE_CMAKE_DIR/FindGLM.cmake" "$ALT_CMAKE_DIR/GLMConfig.cmake"
-          cp "$FAKE_CMAKE_DIR/FindGLM.cmake" "$ALT_CMAKE_DIR/glmConfig.cmake"
-
-          if [ -f "$ROOT/GeneralsMD/Code/CompatLib/CMakeLists.txt" ]; then
-            echo "=== CompatLib/CMakeLists.txt ==="
-            nl -ba "$ROOT/GeneralsMD/Code/CompatLib/CMakeLists.txt" | sed -n '1,45p' || true
+          COMPAT_CMAKE="$ROOT/GeneralsMD/Code/CompatLib/CMakeLists.txt"
+          if [ -f "$COMPAT_CMAKE" ]; then
+            echo "=== Patching CompatLib/CMakeLists.txt for GLM ==="
+            python3 -c '
+from pathlib import Path
+p = Path("'"$COMPAT_CMAKE"'")
+txt = p.read_text(encoding="utf-8", errors="ignore")
+snippet = """
+set(GLM_FOUND TRUE CACHE BOOL "" FORCE)
+set(glm_FOUND TRUE CACHE BOOL "" FORCE)
+set(GLM_INCLUDE_DIRS "'"$GLM_PREFIX/include"'" CACHE PATH "" FORCE)
+include_directories("'"$GLM_PREFIX/include"'")
+if(NOT TARGET glm::glm)
+  add_library(glm::glm INTERFACE IMPORTED)
+  set_target_properties(glm::glm PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "'"$GLM_PREFIX/include"'")
+endif()
+"""
+txt = txt.replace("GLM is required for d3dx8 compatibility layer", "GLM enabled via Homebrew")
+p.write_text(snippet + "\n" + txt, encoding="utf-8")
+'
           fi
 
           if [ -f "$ROOT/CMakeLists.txt" ]; then
@@ -78,11 +78,8 @@ jobs:
             cmake -S "$ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
               -DSAGE_USE_SDL3=ON \
-              -DCMAKE_MODULE_PATH="$FAKE_CMAKE_DIR;$ALT_CMAKE_DIR" \
-              -DCMAKE_PREFIX_PATH="$FAKE_CMAKE_DIR;$ALT_CMAKE_DIR;$GLM_PREFIX;$CURL_PREFIX;/opt/homebrew" \
+              -DCMAKE_PREFIX_PATH="$FAKE_CMAKE_DIR;$GLM_PREFIX;$CURL_PREFIX;/opt/homebrew" \
               -DCURL_DIR="$FAKE_CMAKE_DIR" \
-              -DGLM_DIR="$FAKE_CMAKE_DIR" \
-              -Dglm_DIR="$ALT_CMAKE_DIR" \
               -DGLM_FOUND=ON \
               -Dglm_FOUND=ON \
               -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include" \
