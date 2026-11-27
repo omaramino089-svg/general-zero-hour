@@ -186,4 +186,106 @@ jobs:
           typedef struct _D3DVERTEXBUFFER_DESC {
             DWORD Format; DWORD Type; DWORD Usage; DWORD Pool; UINT Size; DWORD FVF;
           } D3DVERTEXBUFFER_DESC;
-          
+          typedef struct _D3DINDEXBUFFER_DESC {
+            DWORD Format; DWORD Type; DWORD Usage; DWORD Pool; UINT Size;
+          } D3DINDEXBUFFER_DESC;
+          typedef struct _D3DPRESENT_PARAMETERS_ {
+            UINT BackBufferWidth; UINT BackBufferHeight; DWORD BackBufferFormat;
+            UINT BackBufferCount; DWORD MultiSampleType; DWORD SwapEffect;
+            HWND hDeviceWindow; BOOL Windowed; BOOL EnableAutoDepthStencil;
+            DWORD AutoDepthStencilFormat; DWORD Flags; UINT FullScreen_RefreshRateInHz;
+            UINT FullScreen_PresentationInterval;
+          } D3DPRESENT_PARAMETERS;
+          typedef struct _D3DDISPLAYMODE {
+            UINT Width; UINT Height; UINT RefreshRate; DWORD Format;
+          } D3DDISPLAYMODE;
+          typedef enum _D3DFORMAT {
+            D3DFMT_UNKNOWN = 0, D3DFMT_A8R8G8B8 = 21, D3DFMT_X8R8G8B8 = 22,
+            D3DFMT_R5G6B5 = 23, D3DFMT_A1R5G5B5 = 25, D3DFMT_A4R4G4B4 = 26,
+            D3DFMT_R8G8B8 = 20, D3DFMT_A8 = 28, D3DFMT_L8 = 50, D3DFMT_A8L8 = 51,
+            D3DFMT_DXT1 = 0x31545844, D3DFMT_DXT2 = 0x32545844, D3DFMT_DXT3 = 0x33545844,
+            D3DFMT_DXT4 = 0x34545844, D3DFMT_DXT5 = 0x35545844,
+            D3DFMT_D16 = 80, D3DFMT_D24S8 = 75, D3DFMT_D32 = 71,
+            D3DFMT_FORCE_DWORD = 0x7fffffff
+          } D3DFORMAT;
+          typedef enum _D3DPOOL {
+            D3DPOOL_DEFAULT = 0, D3DPOOL_MANAGED = 1, D3DPOOL_SYSTEMMEM = 2,
+            D3DPOOL_SCRATCH = 3, D3DPOOL_FORCE_DWORD = 0x7fffffff
+          } D3DPOOL;
+          typedef enum _D3DRESOURCETYPE {
+            D3DRTYPE_SURFACE = 1, D3DRTYPE_VOLUME = 2, D3DRTYPE_TEXTURE = 3,
+            D3DRTYPE_VOLUMETEXTURE = 4, D3DRTYPE_CUBETEXTURE = 5,
+            D3DRTYPE_VERTEXBUFFER = 6, D3DRTYPE_INDEXBUFFER = 7,
+            D3DRTYPE_FORCE_DWORD = 0x7fffffff
+          } D3DRESOURCETYPE;
+          typedef enum _D3DTRANSFORMSTATETYPE {
+            D3DTS_VIEW = 2, D3DTS_PROJECTION = 3, D3DTS_WORLD = 256,
+            D3DTS_TEXTURE0 = 16, D3DTS_FORCE_DWORD = 0x7fffffff
+          } D3DTRANSFORMSTATETYPE;
+          typedef enum _D3DRENDERSTATETYPE {
+            D3DRS_ZENABLE = 7, D3DRS_FILLMODE = 8, D3DRS_SHADEMODE = 9,
+            D3DRS_ZWRITEENABLE = 14, D3DRS_ALPHATESTENABLE = 15, D3DRS_SRCBLEND = 19,
+            D3DRS_DESTBLEND = 20, D3DRS_CULLMODE = 22, D3DRS_ZFUNC = 23,
+            D3DRS_ALPHAREF = 24, D3DRS_ALPHAFUNC = 25, D3DRS_DITHERENABLE = 26,
+            D3DRS_ALPHABLENDENABLE = 27, D3DRS_FOGENABLE = 28, D3DRS_FOGCOLOR = 34,
+            D3DRS_FOGSTART = 36, D3DRS_FOGEND = 37, D3DRS_FOGDENSITY = 38,
+            D3DRS_LIGHTING = 137, D3DRS_AMBIENT = 139, D3DRS_TEXTUREFACTOR = 147,
+            D3DRS_FORCE_DWORD = 0x7fffffff
+          } D3DRENDERSTATETYPE;
+          typedef enum _D3DTEXTURESTAGESTATETYPE {
+            D3DTSS_COLOROP = 1, D3DTSS_COLORARG1 = 2, D3DTSS_COLORARG2 = 3,
+            D3DTSS_ALPHAOP = 4, D3DTSS_ALPHAARG1 = 5, D3DTSS_ALPHAARG2 = 6,
+            D3DTSS_TEXCOORDINDEX = 11, D3DTSS_ADDRESSU = 13, D3DTSS_ADDRESSV = 14,
+            D3DTSS_MAGFILTER = 16, D3DTSS_MINFILTER = 17, D3DTSS_MIPFILTER = 18,
+            D3DTSS_FORCE_DWORD = 0x7fffffff
+          } D3DTEXTURESTAGESTATETYPE;
+          struct IDirect3D8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            HRESULT GetAdapterDisplayMode(UINT, D3DDISPLAYMODE* pMode){if(pMode)*pMode={};return S_OK;}
+            HRESULT CheckDeviceType(UINT, DWORD, DWORD, DWORD, BOOL){return S_OK;}
+            HRESULT CheckDeviceFormat(UINT, DWORD, DWORD, DWORD, DWORD, DWORD){return S_OK;}
+            HRESULT CreateDevice(UINT, DWORD, HWND, DWORD, D3DPRESENT_PARAMETERS*, void** ppDev){if(ppDev)*ppDev=nullptr;return S_OK;}
+          };
+          struct IDirect3DDevice8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            HRESULT TestCooperativeLevel(){return S_OK;}
+            HRESULT Clear(DWORD, const void*, DWORD, D3DCOLOR, float, DWORD){return S_OK;}
+            HRESULT SetTransform(DWORD, const D3DMATRIX*){return S_OK;}
+            HRESULT GetTransform(DWORD, D3DMATRIX* pMat){if(pMat)*pMat={};return S_OK;}
+            HRESULT SetMaterial(const D3DMATERIAL8*){return S_OK;}
+            HRESULT SetLight(DWORD, const D3DLIGHT8*){return S_OK;}
+            HRESULT LightEnable(DWORD, BOOL){return S_OK;}
+            HRESULT SetRenderState(DWORD, DWORD){return S_OK;}
+            HRESULT SetTextureStageState(DWORD, DWORD, DWORD){return S_OK;}
+            HRESULT SetTexture(DWORD, void*){return S_OK;}
+            HRESULT SetViewport(const D3DVIEWPORT8*){return S_OK;}
+            HRESULT GetViewport(D3DVIEWPORT8* pVp){if(pVp)*pVp={};return S_OK;}
+            HRESULT BeginScene(){return S_OK;}
+            HRESULT EndScene(){return S_OK;}
+            HRESULT Present(const void*, const void*, HWND, const void*){return S_OK;}
+            HRESULT CreateTexture(UINT, UINT, UINT, DWORD, DWORD, DWORD, void** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
+            HRESULT CreateCubeTexture(UINT, UINT, DWORD, DWORD, DWORD, void** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
+            HRESULT CreateVolumeTexture(UINT, UINT, UINT, UINT, DWORD, DWORD, DWORD, void** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
+            HRESULT CreateVertexBuffer(UINT, DWORD, DWORD, DWORD, void** ppVb){if(ppVb)*ppVb=nullptr;return S_OK;}
+            HRESULT CreateIndexBuffer(UINT, DWORD, DWORD, DWORD, void** ppIb){if(ppIb)*ppIb=nullptr;return S_OK;}
+            HRESULT SetStreamSource(UINT, void*, UINT){return S_OK;}
+            HRESULT SetIndices(void*, UINT){return S_OK;}
+            HRESULT SetVertexShader(DWORD){return S_OK;}
+            HRESULT DrawPrimitive(DWORD, UINT, UINT){return S_OK;}
+            HRESULT DrawIndexedPrimitive(DWORD, UINT, UINT, UINT, UINT){return S_OK;}
+            HRESULT DrawPrimitiveUP(DWORD, UINT, const void*, UINT){return S_OK;}
+            HRESULT DrawIndexedPrimitiveUP(DWORD, UINT, UINT, UINT, const void*, DWORD, const void*, UINT){return S_OK;}
+          };
+          struct IDirect3DResource8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
+          struct IDirect3DBaseTexture8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            DWORD GetType(){return D3DRTYPE_TEXTURE;}
+            DWORD SetLOD(DWORD){return 0;} DWORD GetLOD(){return 0;} DWORD GetLevelCount(){return 1;}
+          };
+          struct IDirect3DSurface8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            HRESULT GetDesc(D3DSURFACE_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
+            HRESULT LockRect(D3DLOCKED_RECT* pLocked, const RECT*, DWORD){if(pLocked)*pLocked={};return S_OK;}
+            HRESULT UnlockRect(){return S_OK;}
+          };
+          struct IDirect3DTexture8 : public IDirect3DBaseTexture8 {
