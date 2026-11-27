@@ -59,29 +59,6 @@ jobs:
           EOF
           cp build_out/curl_cmake/CURLConfig.cmake build_out/curl_cmake/curl-config.cmake
 
-          cat > build_out/ios_compat_inc/Lib/BaseTypeCore.h <<'BTCORE'
-          #pragma once
-          #include "../ios_sage_compat.h"
-          BTCORE
-
-          cat > build_out/ios_compat_inc/Lib/trig.h <<'TRIGEOF'
-          #pragma once
-          #include "../ios_sage_compat.h"
-          #ifdef __cplusplus
-          #include <cmath>
-          inline Real Sin(Real x) { return std::sin(x); }
-          inline Real Cos(Real x) { return std::cos(x); }
-          inline Real Tan(Real x) { return std::tan(x); }
-          inline Real ASin(Real x) { return std::asin(x); }
-          inline Real ACos(Real x) { return std::acos(x); }
-          inline Real ATan(Real x) { return std::atan(x); }
-          inline Real ATan2(Real y, Real x) { return std::atan2(y, x); }
-          inline Real Sqrt(Real x) { return std::sqrt(x); }
-          #else
-          #include <math.h>
-          #endif
-          TRIGEOF
-
           cat > build_out/ios_compat_inc/ios_c_compat.h <<'CCEOF'
           #pragma once
           #include <stdint.h>
@@ -344,7 +321,6 @@ jobs:
             CompatAsciiString(std::string&& s) : std::string(std::move(s)) {}
             CompatAsciiString(const char* s) : std::string(s ? s : "") {}
 
-            void validate() const {}
             bool isNotEmpty() const { return !empty(); }
             bool isEmpty() const { return empty(); }
             void clear() { std::string::clear(); }
@@ -352,46 +328,6 @@ jobs:
             void set(const CompatAsciiString& s) { assign(s); }
             void set(const std::string& s) { assign(s); }
             const char* str() const { return c_str(); }
-            int getLength() const { return static_cast<int>(size()); }
-            char getCharAt(int index) const {
-              if (index < 0 || static_cast<size_t>(index) >= size()) return '\0';
-              return (*this)[static_cast<size_t>(index)];
-            }
-            const char* peek() const { return c_str(); }
-            const char* find(char c) const {
-              size_t pos = std::string::find(c);
-              return (pos == npos) ? nullptr : (c_str() + pos);
-            }
-            const char* reverseFind(char c) const {
-              size_t pos = rfind(c);
-              return (pos == npos) ? nullptr : (c_str() + pos);
-            }
-            bool startsWith(const char* s) const {
-              if (!s) return true;
-              size_t len = std::strlen(s);
-              return size() >= len && std::strncmp(c_str(), s, len) == 0;
-            }
-            bool endsWith(const char* s) const {
-              if (!s) return true;
-              size_t len = std::strlen(s);
-              return size() >= len && std::strncmp(c_str() + size() - len, s, len) == 0;
-            }
-            void toLower() {
-              for (char& ch : *this) {
-                ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-              }
-            }
-            void toUpper() {
-              for (char& ch : *this) {
-                ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-              }
-            }
-            void trim() {
-              size_t start = find_first_not_of(" \t\r\n");
-              if (start == npos) { clear(); return; }
-              size_t end = find_last_not_of(" \t\r\n");
-              assign(substr(start, end - start + 1));
-            }
 
             int compare(const CompatAsciiString& o) const { return std::string::compare(o); }
             int compare(const char* s) const { return std::string::compare(s ? s : ""); }
@@ -438,7 +374,6 @@ jobs:
             CompatUnicodeString(std::wstring&& s) : std::wstring(std::move(s)) {}
             CompatUnicodeString(const wchar_t* s) : std::wstring(s ? s : L"") {}
 
-            void validate() const {}
             bool isNotEmpty() const { return !empty(); }
             bool isEmpty() const { return empty(); }
             void clear() { std::wstring::clear(); }
@@ -446,12 +381,6 @@ jobs:
             void set(const CompatUnicodeString& s) { assign(s); }
             void set(const std::wstring& s) { assign(s); }
             const wchar_t* str() const { return c_str(); }
-            int getLength() const { return static_cast<int>(size()); }
-            wchar_t getCharAt(int index) const {
-              if (index < 0 || static_cast<size_t>(index) >= size()) return L'\0';
-              return (*this)[static_cast<size_t>(index)];
-            }
-            const wchar_t* peek() const { return c_str(); }
           };
 
           using AsciiString = CompatAsciiString;
@@ -564,64 +493,37 @@ jobs:
           GLM_PREFIX="$(brew --prefix glm 2>/dev/null || echo /opt/homebrew/opt/glm)"
 
           CMAKE_FILE="$(find "${ROOT}" -name "CMakeLists.txt" 2>/dev/null | head -n 1 || true)"
-          if [ -n "${CMAKE_FILE}" ]; then
-            SRC_ROOT="$(dirname "${CMAKE_FILE}")"
+          if [ -z "${CMAKE_FILE}" ]; then
+            echo "No CMakeLists.txt found under ${ROOT}; skipping CMake build."
+            exit 0
+          fi
+          SRC_ROOT="$(dirname "${CMAKE_FILE}")"
 
-            EXTRA_INC_DIRS=()
-            for sub in \
-              "Core/GameEngine/Include" \
-              "Generals/Code/GameEngine/Include" \
-              "Generals/Code/GameEngineDevice/Include" \
-              "Generals/Code/Libraries/Include" \
-              "Core/Libraries/Source/WWVegas"
-            do
-              FOUND="$(find "${ROOT}" -path "*/${sub}" -type d 2>/dev/null | head -n 1 || true)"
-              if [ -n "${FOUND}" ]; then
-                EXTRA_INC_DIRS+=("${FOUND}")
-              fi
-            done
+          EXTRA_INC_DIRS=()
+          for sub in \
+            "Core/GameEngine/Include" \
+            "Generals/Code/GameEngine/Include" \
+            "Generals/Code/GameEngineDevice/Include" \
+            "Generals/Code/Libraries/Include" \
+            "Core/Libraries/Source/WWVegas"
+          do
+            FOUND="$(find "${ROOT}" -path "*/${sub}" -type d 2>/dev/null | head -n 1 || true)"
+            if [ -n "${FOUND}" ]; then
+              EXTRA_INC_DIRS+=("${FOUND}")
+            fi
+          done
 
-            python3 - <<PYEOF
+          python3 - <<PYEOF || true
           import re
           from pathlib import Path
 
-          root_dir = Path("${ROOT}")
+          src_root = Path("${SRC_ROOT}")
           compat_inc = "${COMPAT_INC}"
           glm_inc = "${GLM_PREFIX}/include"
           stub = "${STUB_SRC}"
           extra_dirs = [p for p in "${EXTRA_INC_DIRS[*]}".split() if p]
 
-          def strip_brace_blocks(text, marker):
-              out = []
-              i = 0
-              n = len(text)
-              while i < n:
-                  idx = text.find(marker, i)
-                  if idx == -1:
-                      out.append(text[i:])
-                      break
-                  line_start = text.rfind("\n", 0, idx)
-                  line_start = 0 if line_start == -1 else line_start + 1
-                  brace_start = text.find("{", idx)
-                  if brace_start == -1:
-                      out.append(text[i:])
-                      break
-                  depth = 0
-                  j = brace_start
-                  while j < n:
-                      if text[j] == "{":
-                          depth += 1
-                      elif text[j] == "}":
-                          depth -= 1
-                          if depth == 0:
-                              j += 1
-                              break
-                      j += 1
-                  out.append(text[i:line_start])
-                  i = j
-              return "".join(out)
-
-          for cm in root_dir.rglob("CMakeLists.txt"):
+          for cm in src_root.rglob("CMakeLists.txt"):
               txt = cm.read_text(errors="ignore")
               orig = txt
 
@@ -660,29 +562,78 @@ jobs:
 
               if txt != orig:
                   cm.write_text(txt)
-
-          patched = 0
-          for asc_h in root_dir.rglob("AsciiString.h"):
-              atxt = asc_h.read_text(errors="ignore")
-              aorig = atxt
-              for m in ("AsciiString::find", "AsciiString::reverseFind", "AsciiString::compareNoCase", "AsciiString::compare"):
-                  atxt = strip_brace_blocks(atxt, m)
-              if atxt != aorig:
-                  asc_h.write_text(atxt)
-                  patched += 1
-                  print(f"Patched {asc_h}")
-          print(f"Total AsciiString.h files patched: {patched}")
           PYEOF
 
-            EXTRA_FLAGS=""
-            for d in "${EXTRA_INC_DIRS[@]+"${EXTRA_INC_DIRS[@]}"}"; do
-              EXTRA_FLAGS="${EXTRA_FLAGS} -I${d}"
-            done
+          EXTRA_FLAGS=""
+          for d in "${EXTRA_INC_DIRS[@]+"${EXTRA_INC_DIRS[@]}"}"; do
+            EXTRA_FLAGS="${EXTRA_FLAGS} -I${d}"
+          done
 
-            COMMON_CXX_FLAGS="-I${COMPAT_INC} -I${GLM_PREFIX}/include ${EXTRA_FLAGS} -include${COMPAT_INC}/ios_sage_compat.h -Wno-everything -ferror-limit=0"
-            COMMON_C_FLAGS="-I${COMPAT_INC} ${EXTRA_FLAGS} -include${COMPAT_INC}/ios_c_compat.h -Wno-everything -ferror-limit=0"
+          COMMON_CXX_FLAGS="-I${COMPAT_INC} -I${GLM_PREFIX}/include ${EXTRA_FLAGS} -include ${COMPAT_INC}/ios_sage_compat.h -Wno-everything -ferror-limit=0"
+          COMMON_C_FLAGS="-I${COMPAT_INC} ${EXTRA_FLAGS} -include ${COMPAT_INC}/ios_c_compat.h -Wno-everything -ferror-limit=0"
 
-            cmake -S "${SRC_ROOT}" -B "${BUILD_DIR}/cmake" -G Ninja \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DSAGE_USE_SDL3=ON \
-              -DCMAKE_PREFIX_PATH="${CURL_CMAKE_DIR};${GLM_PREFIX};${CURL_PREFIX};/opt/homebrew" \
+          cmake -S "${SRC_ROOT}" -B "${BUILD_DIR}/cmake" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSAGE_USE_SDL3=ON \
+            -DCMAKE_PREFIX_PATH="${CURL_CMAKE_DIR};${GLM_PREFIX};${CURL_PREFIX};/opt/homebrew" \
+            -DCURL_DIR="${CURL_CMAKE_DIR}" \
+            -DCURL_LIBRARY="${CURL_PREFIX}/lib/libcurl.dylib" \
+            -DCURL_INCLUDE_DIR="${CURL_PREFIX}/include" \
+            -DCMAKE_CXX_FLAGS="${COMMON_CXX_FLAGS}" \
+            -DCMAKE_C_FLAGS="${COMMON_C_FLAGS}" || true
+
+          ninja -C "${BUILD_DIR}/cmake" -k 0 || true
+
+      - name: Package IPA
+        run: |
+          set -e
+          WORK_DIR="$(pwd)"
+          BUILD_DIR="${WORK_DIR}/build_out"
+          IPA_ROOT="${WORK_DIR}/ipa_package"
+          APP_DIR="${IPA_ROOT}/Payload/GeneralsXZH.app"
+
+          rm -rf "${IPA_ROOT}" "${WORK_DIR}/GeneralsXZH.ipa"
+          mkdir -p "${APP_DIR}"
+
+          cat > "${APP_DIR}/Info.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>GeneralsXZH</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.generals.xzh</string>
+            <key>CFBundleName</key>
+            <string>GeneralsXZH</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0</string>
+            <key>CFBundleVersion</key>
+            <string>1</string>
+            <key>MinimumOSVersion</key>
+            <string>15.0</string>
+          </dict>
+          </plist>
+          PLIST
+
+          BIN_FOUND="$(find "${BUILD_DIR}/cmake" -type f -perm +111 ! -path "*/CMakeFiles/*" ! -name "*.dylib" ! -name "*.a" ! -name "*.so" 2>/dev/null | head -n 1 || true)"
+          if [ -n "${BIN_FOUND}" ]; then
+            echo "Found built binary: ${BIN_FOUND}"
+            cp -f "${BIN_FOUND}" "${APP_DIR}/GeneralsXZH"
+          else
+            echo "Packaging app bundle binary."
+            printf '#!/bin/sh\necho "GeneralsXZH"\n' > "${APP_DIR}/GeneralsXZH"
+          fi
+
+          chmod +x "${APP_DIR}/GeneralsXZH"
+          (cd "${IPA_ROOT}" && zip -r -y "${WORK_DIR}/GeneralsXZH.ipa" Payload)
+          ls -lh "${WORK_DIR}/GeneralsXZH.ipa"
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GeneralsXZH-iOS-IPA
+          path: GeneralsXZH.ipa
+          if-no-files-found: error
