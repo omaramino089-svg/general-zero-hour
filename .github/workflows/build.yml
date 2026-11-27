@@ -31,15 +31,24 @@ jobs:
           BUILD_DIR="$(pwd)/build_out"
           IPA_ROOT="$(pwd)/ipa_package"
           mkdir -p "$BUILD_DIR" "$IPA_ROOT/Payload"
+
           CURL_PREFIX="$(brew --prefix curl)"
+          echo "CURL_PREFIX=$CURL_PREFIX"
+          find "$CURL_PREFIX" -maxdepth 4 -iname "*curl*config*.cmake" -o -iname "curl.cps" -o -iname "CURL.cps" 2>/dev/null || true
+
+          if [ -f "$ROOT/cmake/curl.cmake" ]; then
+            echo "=== cmake/curl.cmake ==="
+            cat "$ROOT/cmake/curl.cmake"
+          fi
 
           if [ -f "$ROOT/CMakeLists.txt" ]; then
             echo "=== Configuring CMake with SDL3 and CURL ==="
             cmake -S "$ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
               -DSAGE_USE_SDL3=ON \
-              -DCMAKE_PREFIX_PATH="$CURL_PREFIX" \
-              -DCURL_DIR="$CURL_PREFIX/lib/cmake/CURL"
+              -DCMAKE_PREFIX_PATH="$CURL_PREFIX;/opt/homebrew" \
+              -DCURL_LIBRARY="$CURL_PREFIX/lib/libcurl.dylib" \
+              -DCURL_INCLUDE_DIR="$CURL_PREFIX/include"
             echo "=== Building CMake targets ==="
             cmake --build "$BUILD_DIR/cmake" --parallel
           fi
