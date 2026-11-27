@@ -493,7 +493,8 @@ jobs:
                   txt = re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew|export set)[^\)]*\)", "# glm bypassed", txt, flags=re.I|re.S)
                   txt = h + txt
               if cm.parent.name in ("GameEngine", "GameEngineDevice"):
-                  prefixes = [p for p in (util_inc, bittype_inc, stl_inc, basetype_inc) + tree_dirs if p]
+                  combined = [util_inc, bittype_inc, stl_inc, basetype_inc] + tree_dirs
+                  prefixes = [p for p in combined if p]
                   if prefixes:
                       joined = " ".join(f'"{p}"' for p in dict.fromkeys(prefixes))
                       txt = f'include_directories(BEFORE {joined})\n' + txt
