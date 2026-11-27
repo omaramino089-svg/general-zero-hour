@@ -200,6 +200,15 @@ jobs:
             static void* operator new(std::size_t sz) { return std::malloc(sz ? sz : 1); }
             static void operator delete(void* ptr) noexcept { std::free(ptr); }
           };
+          #ifndef MEMORY_POOL_GLUE_ABC
+          #define MEMORY_POOL_GLUE_ABC(cls)
+          #endif
+          #ifndef MEMORY_POOL_GLUE
+          #define MEMORY_POOL_GLUE(cls)
+          #endif
+          #ifndef MEMORY_POOL_GLUE_WITH_USERMEMORYPOOL_FUNCTIONS
+          #define MEMORY_POOL_GLUE_WITH_USERMEMORYPOOL_FUNCTIONS(cls, ...)
+          #endif
           GMEMEOF
           cat > build_out/win_compat_inc/Lib/Bink.h <<'BNKEOF'
           #pragma once
