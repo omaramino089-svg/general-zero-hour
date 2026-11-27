@@ -106,3 +106,56 @@ jobs:
               struct { float _11, _12, _13, _14, _21, _22, _23, _24, _31, _32, _33, _34, _41, _42, _43, _44; };
               float m[4][4];
             };
+          } D3DMATRIX;
+          typedef struct _D3DCOLORVALUE { float r, g, b, a; } D3DCOLORVALUE;
+          typedef struct _D3DVIEWPORT8 { DWORD X, Y, Width, Height; float MinZ, MaxZ; } D3DVIEWPORT8;
+          typedef struct _D3DLIGHT8 {
+            DWORD Type; D3DCOLORVALUE Diffuse, Specular, Ambient; D3DVECTOR Position, Direction;
+            float Range, Falloff, Attenuation0, Attenuation1, Attenuation2, Theta, Phi;
+          } D3DLIGHT8;
+          typedef struct _D3DMATERIAL8 { D3DCOLORVALUE Diffuse, Ambient, Specular, Emissive; float Power; } D3DMATERIAL8;
+          typedef struct _D3DSURFACE_DESC { DWORD Format, Type, Usage, Pool; UINT Size; DWORD MultiSampleType; UINT Width, Height; } D3DSURFACE_DESC;
+          typedef struct _D3DVOLUME_DESC { DWORD Format, Type, Usage, Pool; UINT Width, Height, Depth; } D3DVOLUME_DESC;
+          typedef struct _D3DLOCKED_RECT { INT Pitch; void* pBits; } D3DLOCKED_RECT;
+          typedef struct _D3DLOCKED_BOX { INT RowPitch; INT SlicePitch; void* pBits; } D3DLOCKED_BOX;
+          typedef struct _D3DVERTEXBUFFER_DESC { DWORD Format, Type, Usage, Pool; UINT Size, FVF; } D3DVERTEXBUFFER_DESC;
+          typedef struct _D3DINDEXBUFFER_DESC { DWORD Format, Type, Usage, Pool; UINT Size; } D3DINDEXBUFFER_DESC;
+          typedef struct _D3DPRESENT_PARAMETERS_ {
+            UINT BackBufferWidth, BackBufferHeight; DWORD BackBufferFormat; UINT BackBufferCount;
+            DWORD MultiSampleType, SwapEffect; HWND hDeviceWindow; BOOL Windowed, EnableAutoDepthStencil;
+            DWORD AutoDepthStencilFormat, Flags; UINT FullScreen_RefreshRateInHz, FullScreen_PresentationInterval;
+          } D3DPRESENT_PARAMETERS;
+          typedef struct _D3DDISPLAYMODE { UINT Width, Height, RefreshRate; DWORD Format; } D3DDISPLAYMODE;
+          typedef enum _D3DFORMAT {
+            D3DFMT_UNKNOWN = 0, D3DFMT_A8R8G8B8 = 21, D3DFMT_X8R8G8B8 = 22, D3DFMT_R5G6B5 = 23,
+            D3DFMT_A1R5G5B5 = 25, D3DFMT_A4R4G4B4 = 26, D3DFMT_R8G8B8 = 20, D3DFMT_A8 = 28,
+            D3DFMT_L8 = 50, D3DFMT_A8L8 = 51, D3DFMT_DXT1 = 0x31545844, D3DFMT_DXT2 = 0x32545844,
+            D3DFMT_DXT3 = 0x33545844, D3DFMT_DXT4 = 0x34545844, D3DFMT_DXT5 = 0x35545844,
+            D3DFMT_D16 = 80, D3DFMT_D24S8 = 75, D3DFMT_D32 = 71, D3DFMT_FORCE_DWORD = 0x7fffffff
+          } D3DFORMAT;
+          typedef enum _D3DPOOL { D3DPOOL_DEFAULT = 0, D3DPOOL_MANAGED = 1, D3DPOOL_SYSTEMMEM = 2, D3DPOOL_SCRATCH = 3, D3DPOOL_FORCE_DWORD = 0x7fffffff } D3DPOOL;
+          typedef enum _D3DRESOURCETYPE { D3DRTYPE_SURFACE = 1, D3DRTYPE_VOLUME = 2, D3DRTYPE_TEXTURE = 3, D3DRTYPE_VOLUMETEXTURE = 4, D3DRTYPE_CUBETEXTURE = 5, D3DRTYPE_VERTEXBUFFER = 6, D3DRTYPE_INDEXBUFFER = 7, D3DRTYPE_FORCE_DWORD = 0x7fffffff } D3DRESOURCETYPE;
+          typedef enum _D3DTRANSFORMSTATETYPE { D3DTS_VIEW = 2, D3DTS_PROJECTION = 3, D3DTS_WORLD = 256, D3DTS_TEXTURE0 = 16, D3DTS_FORCE_DWORD = 0x7fffffff } D3DTRANSFORMSTATETYPE;
+          typedef enum _D3DRENDERSTATETYPE {
+            D3DRS_ZENABLE = 7, D3DRS_FILLMODE = 8, D3DRS_SHADEMODE = 9, D3DRS_ZWRITEENABLE = 14,
+            D3DRS_ALPHATESTENABLE = 15, D3DRS_SRCBLEND = 19, D3DRS_DESTBLEND = 20, D3DRS_CULLMODE = 22,
+            D3DRS_ZFUNC = 23, D3DRS_ALPHAREF = 24, D3DRS_ALPHAFUNC = 25, D3DRS_DITHERENABLE = 26,
+            D3DRS_ALPHABLENDENABLE = 27, D3DRS_FOGENABLE = 28, D3DRS_FOGCOLOR = 34, D3DRS_FOGSTART = 36,
+            D3DRS_FOGEND = 37, D3DRS_FOGDENSITY = 38, D3DRS_LIGHTING = 137, D3DRS_AMBIENT = 139,
+            D3DRS_TEXTUREFACTOR = 147, D3DRS_FORCE_DWORD = 0x7fffffff
+          } D3DRENDERSTATETYPE;
+          typedef enum _D3DTEXTURESTAGESTATETYPE {
+            D3DTSS_COLOROP = 1, D3DTSS_COLORARG1 = 2, D3DTSS_COLORARG2 = 3, D3DTSS_ALPHAOP = 4,
+            D3DTSS_ALPHAARG1 = 5, D3DTSS_ALPHAARG2 = 6, D3DTSS_TEXCOORDINDEX = 11, D3DTSS_ADDRESSU = 13,
+            D3DTSS_ADDRESSV = 14, D3DTSS_MAGFILTER = 16, D3DTSS_MINFILTER = 17, D3DTSS_MIPFILTER = 18,
+            D3DTSS_FORCE_DWORD = 0x7fffffff
+          } D3DTEXTURESTAGESTATETYPE;
+          struct IDirect3D8;
+          struct IDirect3DDevice8;
+          struct IDirect3DResource8;
+          struct IDirect3DBaseTexture8;
+          struct IDirect3DTexture8;
+          struct IDirect3DCubeTexture8;
+          struct IDirect3DVolumeTexture8;
+          struct IDirect3DVertexBuffer8;
+          struct
