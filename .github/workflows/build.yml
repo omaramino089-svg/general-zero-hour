@@ -26,7 +26,7 @@ jobs:
       - name: Prepare compatibility headers
         run: |
           set -e
-          mkdir -p build_out/win_compat_inc/Common build_out/curl_cmake
+          mkdir -p build_out/win_compat_inc/Common build_out/win_compat_inc/Lib build_out/curl_cmake
           CURL_PREFIX="$(brew --prefix curl)"
           cat > build_out/curl_cmake/CURLConfig.cmake <<EOF
           include_guard(GLOBAL)
@@ -121,6 +121,64 @@ jobs:
           using AsciiString = std::string;
           using UnicodeString = std::wstring;
           STLEOF
+          cat > build_out/win_compat_inc/Lib/BaseType.h <<'BTYPEEOF'
+          #pragma once
+          #include <cstdint>
+          #include <cstddef>
+          typedef signed char Int8;
+          typedef unsigned char UnsignedInt8;
+          typedef short Int16;
+          typedef unsigned short UnsignedInt16;
+          typedef int Int32;
+          typedef unsigned int UnsignedInt32;
+          typedef long long Int64;
+          typedef unsigned long long UnsignedInt64;
+          typedef Int32 Int;
+          typedef UnsignedInt32 UnsignedInt;
+          typedef Int16 Short;
+          typedef UnsignedInt16 UnsignedShort;
+          typedef Int8 Byte;
+          typedef UnsignedInt8 UnsignedByte;
+          typedef float Real;
+          typedef double Real64;
+          typedef bool Bool;
+          typedef char Char;
+          typedef wchar_t WideChar;
+          typedef UnsignedInt32 Color;
+          typedef UnsignedInt32 RGBColor;
+          #ifndef FALSE
+          #define FALSE 0
+          #endif
+          #ifndef TRUE
+          #define TRUE 1
+          #endif
+          BTYPEEOF
+          cat > build_out/win_compat_inc/Common/Debug.h <<'DBGEOF'
+          #pragma once
+          #define DEBUG_ASSERTCRASH(exp, ...) ((void)0)
+          #define DEBUG_CRASH(...) ((void)0)
+          #define DEBUG_LOG(...) ((void)0)
+          DBGEOF
+          cat > build_out/win_compat_inc/Common/GameMemory.h <<'GMEMEOF'
+          #pragma once
+          #include <cstddef>
+          #include <cstdlib>
+          #include <new>
+          class MemoryPoolObject {
+          public:
+            virtual ~MemoryPoolObject() = default;
+            static void* operator new(std::size_t sz) { return std::malloc(sz ? sz : 1); }
+            static void operator delete(void* ptr) noexcept { std::free(ptr); }
+          };
+          GMEMEOF
+          cat > build_out/win_compat_inc/Lib/Bink.h <<'BNKEOF'
+          #pragma once
+          typedef void* HBINK;
+          BNKEOF
+          cat > build_out/win_compat_inc/Lib/Smack.h <<'SMKEOF'
+          #pragma once
+          typedef void* HSMACK;
+          SMKEOF
           cat > build_out/win_compat_inc/d3d8.h <<'D3DEOF'
           #pragma once
           #include <cstdint>
@@ -394,6 +452,21 @@ jobs:
           else
             echo "Using fallback Common/STLTypedefs.h from $EXTRA_INC"
           fi
+          BASETYPE_HEADER="$(find "$ROOT" -path "*/Lib/BaseType.h" 2>/dev/null | head -n 1 || true)"
+          BASETYPE_INC_DIR=""
+          if [ -n "$BASETYPE_HEADER" ]; then
+            BASETYPE_INC_DIR="$(dirname "$(dirname "$BASETYPE_HEADER")")"
+            echo "Found Lib/BaseType.h under include dir: $BASETYPE_INC_DIR"
+          else
+            echo "Using fallback Lib/BaseType.h from $EXTRA_INC"
+          fi
+          EXTRA_TREE_DIRS=""
+          for sub in "Core/GameEngine/Include" "Generals/Code/GameEngine/Include" "Generals/Code/GameEngineDevice/Include" "Generals/Code/Libraries/Include"; do
+            FOUND_SUB="$(find "$ROOT" -path "*/$sub" -type d 2>/dev/null | head -n 1 || true)"
+            if [ -n "$FOUND_SUB" ]; then
+              EXTRA_TREE_DIRS="$EXTRA_TREE_DIRS $FOUND_SUB"
+            fi
+          done
           python3 - <<PYEOF
           import re
           from pathlib import Path
@@ -402,6 +475,8 @@ jobs:
           util_inc = "$UTILITY_INC_DIR"
           bittype_inc = "$BITTYPE_INC_DIR"
           stl_inc = "$STLTYPEDEFS_INC_DIR"
+          basetype_inc = "$BASETYPE_INC_DIR"
+          tree_dirs = [p for p in "$EXTRA_TREE_DIRS".split() if p]
           for cm in root.rglob("CMakeLists.txt"):
               txt = cm.read_text(errors="ignore")
               orig = txt
@@ -417,12 +492,11 @@ jobs:
                   txt = re.sub(r"find_package\s*\(\s*glm[^\)]*\)", "# glm handled", txt, flags=re.I)
                   txt = re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew|export set)[^\)]*\)", "# glm bypassed", txt, flags=re.I|re.S)
                   txt = h + txt
-              if util_inc and cm.parent.name == "GameEngine":
-                  txt = f'include_directories(BEFORE "{util_inc}")\n' + txt
-              if bittype_inc and cm.parent.name in ("CompatLib", "GameEngine"):
-                  txt = f'include_directories(BEFORE "{bittype_inc}")\n' + txt
-              if stl_inc and cm.parent.name in ("GameEngine", "GameEngineDevice"):
-                  txt = f'include_directories(BEFORE "{stl_inc}")\n' + txt
+              if cm.parent.name in ("GameEngine", "GameEngineDevice"):
+                  prefixes = [p for p in (util_inc, bittype_inc, stl_inc, basetype_inc) + tree_dirs if p]
+                  if prefixes:
+                      joined = " ".join(f'"{p}"' for p in dict.fromkeys(prefixes))
+                      txt = f'include_directories(BEFORE {joined})\n' + txt
               def fix_add_lib(m):
                   full = m.group(0)
                   inner = m.group(1).strip()
@@ -440,15 +514,11 @@ jobs:
                   print("Patched:", cm)
           PYEOF
           EXTRA_FLAGS=""
-          if [ -n "$UTILITY_INC_DIR" ]; then
-            EXTRA_FLAGS="$EXTRA_FLAGS -I$UTILITY_INC_DIR"
-          fi
-          if [ -n "$BITTYPE_INC_DIR" ]; then
-            EXTRA_FLAGS="$EXTRA_FLAGS -I$BITTYPE_INC_DIR"
-          fi
-          if [ -n "$STLTYPEDEFS_INC_DIR" ]; then
-            EXTRA_FLAGS="$EXTRA_FLAGS -I$STLTYPEDEFS_INC_DIR"
-          fi
+          for d in "$UTILITY_INC_DIR" "$BITTYPE_INC_DIR" "$STLTYPEDEFS_INC_DIR" "$BASETYPE_INC_DIR" $EXTRA_TREE_DIRS; do
+            if [ -n "$d" ]; then
+              EXTRA_FLAGS="$EXTRA_FLAGS -I$d"
+            fi
+          done
           cmake -S "$SRC_ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DSAGE_USE_SDL3=ON \
