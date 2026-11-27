@@ -107,8 +107,84 @@ jobs:
           typedef uint32_t ubit32;
           typedef uint64_t ubit64;
           BTEOF
+          cat > build_out/win_compat_inc/ascii_compat_force.h <<'FORCEEOF'
+          #pragma once
+          #include <cstdint>
+          #include <cstddef>
+          #include <cstdio>
+          #include <cstdarg>
+          #include <cctype>
+          #include <cstring>
+          #include <string>
+
+          #ifndef COMPAT_ASCII_STRING_DEFINED
+          #define COMPAT_ASCII_STRING_DEFINED
+          class CompatAsciiString : public std::string {
+          public:
+            using std::string::string;
+            CompatAsciiString() = default;
+            CompatAsciiString(const std::string& s) : std::string(s) {}
+            CompatAsciiString(std::string&& s) : std::string(std::move(s)) {}
+            CompatAsciiString(const char* s) : std::string(s ? s : "") {}
+            bool isNotEmpty() const { return !empty(); }
+            bool isEmpty() const { return empty(); }
+            void clear() { std::string::clear(); }
+            void set(const char* s) { assign(s ? s : ""); }
+            void set(const CompatAsciiString& s) { assign(s); }
+            void set(const std::string& s) { assign(s); }
+            const char* str() const { return c_str(); }
+            int compare(const CompatAsciiString& o) const { return std::string::compare(o); }
+            int compare(const char* s) const { return std::string::compare(s ? s : ""); }
+            int compareNoCase(const CompatAsciiString& o) const { return compareNoCase(o.c_str()); }
+            int compareNoCase(const char* s) const {
+              const char* a = c_str();
+              const char* b = s ? s : "";
+              while (*a && *b) {
+                int la = std::tolower(static_cast<unsigned char>(*a));
+                int lb = std::tolower(static_cast<unsigned char>(*b));
+                if (la != lb) return la - lb;
+                ++a; ++b;
+              }
+              return static_cast<unsigned char>(*a) - static_cast<unsigned char>(*b);
+            }
+            void format(const char* fmt, ...) {
+              if (!fmt) { clear(); return; }
+              va_list args;
+              va_start(args, fmt);
+              va_list copy;
+              va_copy(copy, args);
+              int n = std::vsnprintf(nullptr, 0, fmt, copy);
+              va_end(copy);
+              if (n > 0) {
+                resize(static_cast<size_t>(n));
+                std::vsnprintf(&(*this)[0], static_cast<size_t>(n) + 1, fmt, args);
+              } else {
+                clear();
+              }
+              va_end(args);
+            }
+          };
+
+          class CompatUnicodeString : public std::wstring {
+          public:
+            using std::wstring::wstring;
+            CompatUnicodeString() = default;
+            CompatUnicodeString(const std::wstring& s) : std::wstring(s) {}
+            CompatUnicodeString(std::wstring&& s) : std::wstring(std::move(s)) {}
+            CompatUnicodeString(const wchar_t* s) : std::wstring(s ? s : L"") {}
+            bool isNotEmpty() const { return !empty(); }
+            bool isEmpty() const { return empty(); }
+            void clear() { std::wstring::clear(); }
+            void set(const wchar_t* s) { assign(s ? s : L""); }
+            void set(const CompatUnicodeString& s) { assign(s); }
+            void set(const std::wstring& s) { assign(s); }
+            const wchar_t* str() const { return c_str(); }
+          };
+          #endif
+          FORCEEOF
           cat > build_out/win_compat_inc/Common/STLTypedefs.h <<'STLEOF'
           #pragma once
+          #include "../ascii_compat_force.h"
           #include <cstdint>
           #include <cstddef>
           #include <string>
@@ -118,8 +194,8 @@ jobs:
           #include <set>
           #include <utility>
           #include <algorithm>
-          using AsciiString = std::string;
-          using UnicodeString = std::wstring;
+          using AsciiString = CompatAsciiString;
+          using UnicodeString = CompatUnicodeString;
           STLEOF
           cat > build_out/win_compat_inc/Lib/BaseType.h <<'BTYPEEOF'
           #pragma once
@@ -598,6 +674,7 @@ jobs:
               EXTRA_FLAGS="$EXTRA_FLAGS -I$d"
             fi
           done
+          FORCE_INC_FLAG="-include $EXTRA_INC/ascii_compat_force.h"
           cmake -S "$SRC_ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DSAGE_USE_SDL3=ON \
@@ -605,7 +682,7 @@ jobs:
             -DCURL_DIR="$CURL_CMAKE_DIR" \
             -DCURL_LIBRARY="$CURL_PREFIX/lib/libcurl.dylib" \
             -DCURL_INCLUDE_DIR="$CURL_PREFIX/include" \
-            -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC $EXTRA_FLAGS -Wno-macro-redefined -Wno-switch -Wno-error=switch -ferror-limit=0" \
+            -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC $EXTRA_FLAGS $FORCE_INC_FLAG -Wno-macro-redefined -Wno-switch -Wno-error=switch -ferror-limit=0" \
             -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC $EXTRA_FLAGS -Wno-macro-redefined -Wno-switch -Wno-error=switch -ferror-limit=0"
           ninja -C "$BUILD_DIR/cmake" -k 0 || true
       - name: Package IPA
