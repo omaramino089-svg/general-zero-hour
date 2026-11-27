@@ -665,7 +665,7 @@ jobs:
           for asc_h in root_dir.rglob("AsciiString.h"):
               atxt = asc_h.read_text(errors="ignore")
               aorig = atxt
-              for m in ("AsciiString::find", "AsciiString::reverseFind"):
+              for m in ("AsciiString::find", "AsciiString::reverseFind", "AsciiString::compareNoCase"):
                   atxt = strip_brace_blocks(atxt, m)
               if atxt != aorig:
                   asc_h.write_text(atxt)
