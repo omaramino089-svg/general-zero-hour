@@ -347,8 +347,8 @@ jobs:
               -DCURL_DIR="$CURL_CMAKE_DIR" \
               -DCURL_LIBRARY="$CURL_PREFIX/lib/libcurl.dylib" \
               -DCURL_INCLUDE_DIR="$CURL_PREFIX/include" \
-              -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined -ferror-limit=0" \
-              -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined -ferror-limit=0"
+              -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined -Wno-switch -Wno-error=switch -ferror-limit=0" \
+              -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined -Wno-switch -Wno-error=switch -ferror-limit=0"
             ninja -C "$BUILD_DIR/cmake" -k 1
           fi
           if [ -f "$ROOT/ios/project.yml" ]; then
