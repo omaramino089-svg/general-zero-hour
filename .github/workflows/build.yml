@@ -3,73 +3,216 @@ on:
   workflow_dispatch:
   push:
     branches: [ "main" ]
+
 jobs:
   build:
     runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Unpack archives
         run: |
-          set -e
+          set -euo pipefail
+          rm -rf src_combined
           mkdir -p src_combined
-          for z in *.zip; do
-            if [ -f "$z" ]; then
+          shopt -s nullglob
+          zips=(*.zip)
+          if [ "${#zips[@]}" -gt 0 ]; then
+            for z in "${zips[@]}"; do
+              echo "Unpacking $z..."
               unzip -q -o "$z" -d src_combined
-            fi
-          done
+            done
+          fi
           ls -la src_combined
+
       - name: Install tools
         run: |
-          set -e
-          brew install xcodegen cmake ninja sdl3 curl glm
-      - name: Prepare compatibility headers
+          set -euo pipefail
+          brew update || true
+          brew install --formula cmake ninja sdl3 curl glm || true
+
+      - name: Prepare clean compatibility layer
         run: |
-          set -e
-          mkdir -p build_out/win_compat_inc/Common build_out/win_compat_inc/Lib build_out/win_compat_inc/WWDebug build_out/curl_cmake
-          CURL_PREFIX="$(brew --prefix curl)"
+          set -euo pipefail
+          rm -rf build_out
+          mkdir -p build_out/ios_compat_inc/Common \
+                   build_out/ios_compat_inc/Lib \
+                   build_out/ios_compat_inc/WWDebug \
+                   build_out/curl_cmake \
+                   build_out/stub_src
+
+          printf '#pragma once\n' > build_out/stub_src/compat_stub.cpp
+
+          CURL_PREFIX="$(brew --prefix curl 2>/dev/null || echo /opt/homebrew/opt/curl)"
           cat > build_out/curl_cmake/CURLConfig.cmake <<EOF
           include_guard(GLOBAL)
           set(CURL_FOUND TRUE)
-          set(CURL_INCLUDE_DIRS "$CURL_PREFIX/include")
-          set(CURL_LIBRARIES "$CURL_PREFIX/lib/libcurl.dylib")
+          set(CURL_INCLUDE_DIRS "${CURL_PREFIX}/include")
+          set(CURL_LIBRARIES "${CURL_PREFIX}/lib/libcurl.dylib")
           if(NOT TARGET CURL::libcurl)
             add_library(CURL::libcurl SHARED IMPORTED)
             set_target_properties(CURL::libcurl PROPERTIES
-              IMPORTED_LOCATION "$CURL_PREFIX/lib/libcurl.dylib"
-              INTERFACE_INCLUDE_DIRECTORIES "$CURL_PREFIX/include"
+              IMPORTED_LOCATION "${CURL_PREFIX}/lib/libcurl.dylib"
+              INTERFACE_INCLUDE_DIRECTORIES "${CURL_PREFIX}/include"
             )
           endif()
           EOF
           cp build_out/curl_cmake/CURLConfig.cmake build_out/curl_cmake/curl-config.cmake
-          cat > build_out/win_compat_inc/windows_base.h <<'WEOF'
+
+          cat > build_out/ios_compat_inc/ios_sage_compat.h <<'CEOF'
           #pragma once
+
           #include <cstdint>
+          #include <cstddef>
+          #include <cstdio>
+          #include <cstdarg>
+          #include <cstdlib>
           #include <cstring>
-          using DWORD = uint32_t; using WORD = uint16_t; using BYTE = uint8_t;
-          using BOOL = int32_t; using WINBOOL = int32_t; using LONG = int32_t;
-          using ULONG = uint32_t; using LONGLONG = int64_t; using ULONGLONG = uint64_t;
-          using UINT = uint32_t; using INT = int32_t; using FLOAT = float;
-          using WCHAR = wchar_t; using LPSTR = char*; using LPCSTR = const char*;
-          using LPWSTR = wchar_t*; using LPCWSTR = const wchar_t*;
-          using LPVOID = void*; using LPCVOID = const void*;
-          using HANDLE = void*; using HWND = void*; using HMODULE = void*;
-          using HINSTANCE = void*; using HDC = void*; using HRESULT = int32_t;
+          #include <cctype>
+          #include <new>
+          #include <string>
+          #include <vector>
+          #include <list>
+          #include <map>
+          #include <set>
+          #include <utility>
+          #include <algorithm>
+
+          /* C++11 / Cross-platform macros */
+          #ifndef CPP_11
+          #define CPP_11(...) __VA_ARGS__
+          #endif
+          #ifndef OVERRIDE
+          #define OVERRIDE override
+          #endif
+          #ifndef FINAL
+          #define FINAL final
+          #endif
+          #ifndef NOEXCEPT
+          #define NOEXCEPT noexcept
+          #endif
+          #ifndef CONSTEXPR
+          #define CONSTEXPR constexpr
+          #endif
+
+          /* Debug & Profiling macros */
+          #ifndef DEBUG_ASSERTCRASH
+          #define DEBUG_ASSERTCRASH(exp, ...) ((void)0)
+          #endif
+          #ifndef DEBUG_CRASH
+          #define DEBUG_CRASH(...) ((void)0)
+          #endif
+          #ifndef DEBUG_LOG
+          #define DEBUG_LOG(...) ((void)0)
+          #endif
+          #ifndef WWDEBUG_SAY
+          #define WWDEBUG_SAY(...) ((void)0)
+          #endif
+          #ifndef WWDEBUG_ASSERT
+          #define WWDEBUG_ASSERT(...) ((void)0)
+          #endif
+          #ifndef WWDEBUG_WARNING
+          #define WWDEBUG_WARNING(...) ((void)0)
+          #endif
+          #ifndef WWDEBUG_ERROR
+          #define WWDEBUG_ERROR(...) ((void)0)
+          #endif
+          #ifndef WWASSERT
+          #define WWASSERT(exp) ((void)0)
+          #endif
+
+          #ifndef IOS_SAGE_COMPAT_TYPES_DEFINED
+          #define IOS_SAGE_COMPAT_TYPES_DEFINED
+
+          /* Windows base types */
+          using DWORD = uint32_t;
+          using WORD = uint16_t;
+          using BYTE = uint8_t;
+          using BOOL = int32_t;
+          using WINBOOL = int32_t;
+          using LONG = int32_t;
+          using ULONG = uint32_t;
+          using LONGLONG = int64_t;
+          using ULONGLONG = uint64_t;
+          using UINT = uint32_t;
+          using INT = int32_t;
+          using FLOAT = float;
+          using WCHAR = wchar_t;
+          using LPSTR = char*;
+          using LPCSTR = const char*;
+          using LPWSTR = wchar_t*;
+          using LPCWSTR = const wchar_t*;
+          using LPVOID = void*;
+          using LPCVOID = const void*;
+          using HANDLE = void*;
+          using HWND = void*;
+          using HMODULE = void*;
+          using HINSTANCE = void*;
+          using HDC = void*;
+          using HRESULT = int32_t;
           using SIZE_T = size_t;
-          struct PALETTEENTRY { BYTE peRed, peGreen, peBlue, peFlags; };
+
+          typedef int8_t bit8;
+          typedef int16_t bit16;
+          typedef int32_t bit32;
+          typedef int64_t bit64;
+          typedef uint8_t ubit8;
+          typedef uint16_t ubit16;
+          typedef uint32_t ubit32;
+          typedef uint64_t ubit64;
+
+          struct PALETTEENTRY {
+            BYTE peRed = 0;
+            BYTE peGreen = 0;
+            BYTE peBlue = 0;
+            BYTE peFlags = 0;
+          };
           typedef PALETTEENTRY *PPALETTEENTRY, *LPPALETTEENTRY;
           typedef const PALETTEENTRY *LPCPALETTEENTRY;
-          struct RECT { LONG left, top, right, bottom; };
+
+          struct RECT {
+            LONG left = 0;
+            LONG top = 0;
+            LONG right = 0;
+            LONG bottom = 0;
+          };
           typedef RECT *PRECT, *LPRECT;
           typedef const RECT *LPCRECT;
-          struct POINT { LONG x, y; };
+
+          struct POINT {
+            LONG x = 0;
+            LONG y = 0;
+          };
           typedef POINT *PPOINT, *LPPOINT;
+
           typedef struct _MEMORYSTATUS {
-            DWORD dwLength, dwMemoryLoad;
-            SIZE_T dwTotalPhys, dwAvailPhys, dwTotalPageFile, dwAvailPageFile, dwTotalVirtual, dwAvailVirtual;
+            DWORD dwLength = 0;
+            DWORD dwMemoryLoad = 0;
+            SIZE_T dwTotalPhys = 0;
+            SIZE_T dwAvailPhys = 0;
+            SIZE_T dwTotalPageFile = 0;
+            SIZE_T dwAvailPageFile = 0;
+            SIZE_T dwTotalVirtual = 0;
+            SIZE_T dwAvailVirtual = 0;
           } MEMORYSTATUS, *LPMEMORYSTATUS;
-          typedef union _LARGE_INTEGER { struct { DWORD LowPart; LONG HighPart; }; long long QuadPart; } LARGE_INTEGER;
-          typedef union _ULARGE_INTEGER { struct { DWORD LowPart; DWORD HighPart; }; unsigned long long QuadPart; } ULARGE_INTEGER;
+
+          typedef union _LARGE_INTEGER {
+            struct {
+              DWORD LowPart;
+              LONG HighPart;
+            };
+            long long QuadPart;
+          } LARGE_INTEGER;
+
+          typedef union _ULARGE_INTEGER {
+            struct {
+              DWORD LowPart;
+              DWORD HighPart;
+            };
+            unsigned long long QuadPart;
+          } ULARGE_INTEGER;
+
           #ifndef TRUE
           #define TRUE 1
           #endif
@@ -94,31 +237,34 @@ jobs:
           #ifndef SUCCEEDED
           #define SUCCEEDED(hr) (((HRESULT)(hr)) >= 0)
           #endif
-          WEOF
-          cat > build_out/win_compat_inc/bittype.h <<'BTEOF'
-          #pragma once
-          #include <cstdint>
-          typedef int8_t bit8;
-          typedef int16_t bit16;
-          typedef int32_t bit32;
-          typedef int64_t bit64;
-          typedef uint8_t ubit8;
-          typedef uint16_t ubit16;
-          typedef uint32_t ubit32;
-          typedef uint64_t ubit64;
-          BTEOF
-          cat > build_out/win_compat_inc/ascii_compat_force.h <<'FORCEEOF'
-          #pragma once
-          #include <cstdint>
-          #include <cstddef>
-          #include <cstdio>
-          #include <cstdarg>
-          #include <cctype>
-          #include <cstring>
-          #include <string>
 
-          #ifndef COMPAT_ASCII_STRING_DEFINED
-          #define COMPAT_ASCII_STRING_DEFINED
+          /* SAGE scalar types */
+          typedef signed char Int8;
+          typedef unsigned char UnsignedInt8;
+          typedef short Int16;
+          typedef unsigned short UnsignedInt16;
+          typedef int Int32;
+          typedef unsigned int UnsignedInt32;
+          typedef long long Int64;
+          typedef unsigned long long UnsignedInt64;
+          typedef Int32 Int;
+          typedef UnsignedInt32 UnsignedInt;
+          typedef Int16 Short;
+          typedef UnsignedInt16 UnsignedShort;
+          typedef Int8 Byte;
+          typedef UnsignedInt8 UnsignedByte;
+          typedef float Real;
+          typedef double Real64;
+          typedef bool Bool;
+          typedef char Char;
+          typedef wchar_t WideChar;
+          typedef UnsignedInt32 Color;
+          typedef UnsignedInt32 RGBColor;
+
+          typedef void* HBINK;
+          typedef void* HSMACK;
+
+          /* String compatibility classes */
           class CompatAsciiString : public std::string {
           public:
             using std::string::string;
@@ -126,6 +272,7 @@ jobs:
             CompatAsciiString(const std::string& s) : std::string(s) {}
             CompatAsciiString(std::string&& s) : std::string(std::move(s)) {}
             CompatAsciiString(const char* s) : std::string(s ? s : "") {}
+
             bool isNotEmpty() const { return !empty(); }
             bool isEmpty() const { return empty(); }
             void clear() { std::string::clear(); }
@@ -133,6 +280,7 @@ jobs:
             void set(const CompatAsciiString& s) { assign(s); }
             void set(const std::string& s) { assign(s); }
             const char* str() const { return c_str(); }
+
             int compare(const CompatAsciiString& o) const { return std::string::compare(o); }
             int compare(const char* s) const { return std::string::compare(s ? s : ""); }
             int compareNoCase(const CompatAsciiString& o) const { return compareNoCase(o.c_str()); }
@@ -143,12 +291,17 @@ jobs:
                 int la = std::tolower(static_cast<unsigned char>(*a));
                 int lb = std::tolower(static_cast<unsigned char>(*b));
                 if (la != lb) return la - lb;
-                ++a; ++b;
+                ++a;
+                ++b;
               }
               return static_cast<unsigned char>(*a) - static_cast<unsigned char>(*b);
             }
+
             void format(const char* fmt, ...) {
-              if (!fmt) { clear(); return; }
+              if (!fmt) {
+                clear();
+                return;
+              }
               va_list args;
               va_start(args, fmt);
               va_list copy;
@@ -172,6 +325,7 @@ jobs:
             CompatUnicodeString(const std::wstring& s) : std::wstring(s) {}
             CompatUnicodeString(std::wstring&& s) : std::wstring(std::move(s)) {}
             CompatUnicodeString(const wchar_t* s) : std::wstring(s ? s : L"") {}
+
             bool isNotEmpty() const { return !empty(); }
             bool isEmpty() const { return empty(); }
             void clear() { std::wstring::clear(); }
@@ -180,64 +334,18 @@ jobs:
             void set(const std::wstring& s) { assign(s); }
             const wchar_t* str() const { return c_str(); }
           };
-          #endif
-          FORCEEOF
-          cat > build_out/win_compat_inc/Common/STLTypedefs.h <<'STLEOF'
-          #pragma once
-          #include "../ascii_compat_force.h"
-          #include <cstdint>
-          #include <cstddef>
-          #include <string>
-          #include <vector>
-          #include <list>
-          #include <map>
-          #include <set>
-          #include <utility>
-          #include <algorithm>
+
           using AsciiString = CompatAsciiString;
           using UnicodeString = CompatUnicodeString;
-          STLEOF
-          cat > build_out/win_compat_inc/Lib/BaseType.h <<'BTYPEEOF'
-          #pragma once
-          #include <cstdint>
-          #include <cstddef>
-          typedef signed char Int8;
-          typedef unsigned char UnsignedInt8;
-          typedef short Int16;
-          typedef unsigned short UnsignedInt16;
-          typedef int Int32;
-          typedef unsigned int UnsignedInt32;
-          typedef long long Int64;
-          typedef unsigned long long UnsignedInt64;
-          typedef Int32 Int;
-          typedef UnsignedInt32 UnsignedInt;
-          typedef Int16 Short;
-          typedef UnsignedInt16 UnsignedShort;
-          typedef Int8 Byte;
-          typedef UnsignedInt8 UnsignedByte;
-          typedef float Real;
-          typedef double Real64;
-          typedef bool Bool;
-          typedef char Char;
-          typedef wchar_t WideChar;
-          typedef UnsignedInt32 Color;
-          typedef UnsignedInt32 RGBColor;
-          #ifndef FALSE
-          #define FALSE 0
-          #endif
-          #ifndef TRUE
-          #define TRUE 1
-          #endif
-          BTYPEEOF
-          cat > build_out/win_compat_inc/Common/GameType.h <<'GTYPEEOF'
-          #pragma once
-          #include "../Lib/BaseType.h"
+
+          /* Coordinate types */
           struct Coord2D {
             Real x = 0.0f;
             Real y = 0.0f;
             bool operator==(const Coord2D& o) const { return x == o.x && y == o.y; }
             bool operator!=(const Coord2D& o) const { return !(*this == o); }
           };
+
           struct Coord3D {
             Real x = 0.0f;
             Real y = 0.0f;
@@ -245,12 +353,14 @@ jobs:
             bool operator==(const Coord3D& o) const { return x == o.x && y == o.y && z == o.z; }
             bool operator!=(const Coord3D& o) const { return !(*this == o); }
           };
+
           struct ICoord2D {
             Int x = 0;
             Int y = 0;
             bool operator==(const ICoord2D& o) const { return x == o.x && y == o.y; }
             bool operator!=(const ICoord2D& o) const { return !(*this == o); }
           };
+
           struct ICoord3D {
             Int x = 0;
             Int y = 0;
@@ -258,24 +368,15 @@ jobs:
             bool operator==(const ICoord3D& o) const { return x == o.x && y == o.y && z == o.z; }
             bool operator!=(const ICoord3D& o) const { return !(*this == o); }
           };
-          GTYPEEOF
-          cat > build_out/win_compat_inc/Common/Debug.h <<'DBGEOF'
-          #pragma once
-          #define DEBUG_ASSERTCRASH(exp, ...) ((void)0)
-          #define DEBUG_CRASH(...) ((void)0)
-          #define DEBUG_LOG(...) ((void)0)
-          DBGEOF
-          cat > build_out/win_compat_inc/Common/GameMemory.h <<'GMEMEOF'
-          #pragma once
-          #include <cstddef>
-          #include <cstdlib>
-          #include <new>
+
+          /* Memory pool compatibility */
           class MemoryPoolObject {
           public:
             virtual ~MemoryPoolObject() = default;
             static void* operator new(std::size_t sz) { return std::malloc(sz ? sz : 1); }
             static void operator delete(void* ptr) noexcept { std::free(ptr); }
           };
+
           #ifndef MEMORY_POOL_GLUE_ABC
           #define MEMORY_POOL_GLUE_ABC(cls)
           #endif
@@ -285,415 +386,170 @@ jobs:
           #ifndef MEMORY_POOL_GLUE_WITH_USERMEMORYPOOL_FUNCTIONS
           #define MEMORY_POOL_GLUE_WITH_USERMEMORYPOOL_FUNCTIONS(cls, ...)
           #endif
-          GMEMEOF
-          cat > build_out/win_compat_inc/Lib/Bink.h <<'BNKEOF'
-          #pragma once
-          typedef void* HBINK;
-          BNKEOF
-          cat > build_out/win_compat_inc/Lib/Smack.h <<'SMKEOF'
-          #pragma once
-          typedef void* HSMACK;
-          SMKEOF
-          cat > build_out/win_compat_inc/WWDebug/wwdebug.h <<'WWDEOF'
-          #pragma once
-          #define WWDEBUG_SAY(...) ((void)0)
-          #define WWDEBUG_ASSERT(...) ((void)0)
-          #define WWDEBUG_WARNING(...) ((void)0)
-          #define WWDEBUG_ERROR(...) ((void)0)
-          #define WWASSERT(exp) ((void)0)
+
           class WWDebug {
           public:
             static void Print(const char*, ...) {}
           };
-          WWDEOF
-          cat > build_out/win_compat_inc/WWDebug/wwprofile.h <<'WWPEOF'
-          #pragma once
+
           class WWProfileSample {
           public:
             WWProfileSample(const char*) {}
             ~WWProfileSample() {}
           };
+
+          #ifndef WWPROFILE
           #define WWPROFILE(name) WWProfileSample __ww_prof_##__LINE__(name)
-          WWPEOF
-          cat > build_out/win_compat_inc/d3d8.h <<'D3DEOF'
+          #endif
+
+          #endif /* IOS_SAGE_COMPAT_TYPES_DEFINED */
+          CEOF
+
+          for h in windows_base.h bittype.h d3d8.h; do
+            cat > "build_out/ios_compat_inc/$h" <<EOF
           #pragma once
-          #include <cstdint>
-          #include "windows_base.h"
-          typedef DWORD D3DCOLOR;
-          typedef struct _D3DVECTOR { float x, y, z; } D3DVECTOR;
-          typedef struct _D3DMATRIX {
-            union {
-              struct { float _11, _12, _13, _14, _21, _22, _23, _24, _31, _32, _33, _34, _41, _42, _43, _44; };
-              float m[4][4];
-            };
-          } D3DMATRIX;
-          typedef struct _D3DCOLORVALUE { float r, g, b, a; } D3DCOLORVALUE;
-          typedef struct _D3DVIEWPORT8 { DWORD X, Y, Width, Height; float MinZ, MaxZ; } D3DVIEWPORT8;
-          typedef struct _D3DLIGHT8 {
-            DWORD Type; D3DCOLORVALUE Diffuse, Specular, Ambient; D3DVECTOR Position, Direction;
-            float Range, Falloff, Attenuation0, Attenuation1, Attenuation2, Theta, Phi;
-          } D3DLIGHT8;
-          typedef struct _D3DMATERIAL8 { D3DCOLORVALUE Diffuse, Ambient, Specular, Emissive; float Power; } D3DMATERIAL8;
-          typedef struct _D3DSURFACE_DESC { DWORD Format, Type, Usage, Pool; UINT Size; DWORD MultiSampleType; UINT Width, Height; } D3DSURFACE_DESC;
-          typedef struct _D3DVOLUME_DESC { DWORD Format, Type, Usage, Pool; UINT Width, Height, Depth; } D3DVOLUME_DESC;
-          typedef struct _D3DLOCKED_RECT { INT Pitch; void* pBits; } D3DLOCKED_RECT;
-          typedef struct _D3DLOCKED_BOX { INT RowPitch; INT SlicePitch; void* pBits; } D3DLOCKED_BOX;
-          typedef struct _D3DVERTEXBUFFER_DESC { DWORD Format, Type, Usage, Pool; UINT Size, FVF; } D3DVERTEXBUFFER_DESC;
-          typedef struct _D3DINDEXBUFFER_DESC { DWORD Format, Type, Usage, Pool; UINT Size; } D3DINDEXBUFFER_DESC;
-          typedef struct _D3DPRESENT_PARAMETERS_ {
-            UINT BackBufferWidth, BackBufferHeight; DWORD BackBufferFormat; UINT BackBufferCount;
-            DWORD MultiSampleType, SwapEffect; HWND hDeviceWindow; BOOL Windowed, EnableAutoDepthStencil;
-            DWORD AutoDepthStencilFormat, Flags; UINT FullScreen_RefreshRateInHz, FullScreen_PresentationInterval;
-          } D3DPRESENT_PARAMETERS;
-          typedef struct _D3DDISPLAYMODE { UINT Width, Height, RefreshRate; DWORD Format; } D3DDISPLAYMODE;
-          typedef enum _D3DFORMAT {
-            D3DFMT_UNKNOWN = 0, D3DFMT_A8R8G8B8 = 21, D3DFMT_X8R8G8B8 = 22, D3DFMT_R5G6B5 = 23,
-            D3DFMT_A1R5G5B5 = 25, D3DFMT_A4R4G4B4 = 26, D3DFMT_R8G8B8 = 20, D3DFMT_A8 = 28,
-            D3DFMT_L8 = 50, D3DFMT_A8L8 = 51, D3DFMT_DXT1 = 0x31545844, D3DFMT_DXT2 = 0x32545844,
-            D3DFMT_DXT3 = 0x33545844, D3DFMT_DXT4 = 0x34545844, D3DFMT_DXT5 = 0x35545844,
-            D3DFMT_D16 = 80, D3DFMT_D24S8 = 75, D3DFMT_D32 = 71, D3DFMT_FORCE_DWORD = 0x7fffffff
-          } D3DFORMAT;
-          typedef enum _D3DPOOL { D3DPOOL_DEFAULT = 0, D3DPOOL_MANAGED = 1, D3DPOOL_SYSTEMMEM = 2, D3DPOOL_SCRATCH = 3, D3DPOOL_FORCE_DWORD = 0x7fffffff } D3DPOOL;
-          typedef enum _D3DRESOURCETYPE { D3DRTYPE_SURFACE = 1, D3DRTYPE_VOLUME = 2, D3DRTYPE_TEXTURE = 3, D3DRTYPE_VOLUMETEXTURE = 4, D3DRTYPE_CUBETEXTURE = 5, D3DRTYPE_VERTEXBUFFER = 6, D3DRTYPE_INDEXBUFFER = 7, D3DRTYPE_FORCE_DWORD = 0x7fffffff } D3DRESOURCETYPE;
-          typedef enum _D3DTRANSFORMSTATETYPE { D3DTS_VIEW = 2, D3DTS_PROJECTION = 3, D3DTS_WORLD = 256, D3DTS_TEXTURE0 = 16, D3DTS_FORCE_DWORD = 0x7fffffff } D3DTRANSFORMSTATETYPE;
-          typedef enum _D3DRENDERSTATETYPE {
-            D3DRS_ZENABLE = 7, D3DRS_FILLMODE = 8, D3DRS_SHADEMODE = 9, D3DRS_ZWRITEENABLE = 14,
-            D3DRS_ALPHATESTENABLE = 15, D3DRS_SRCBLEND = 19, D3DRS_DESTBLEND = 20, D3DRS_CULLMODE = 22,
-            D3DRS_ZFUNC = 23, D3DRS_ALPHAREF = 24, D3DRS_ALPHAFUNC = 25, D3DRS_DITHERENABLE = 26,
-            D3DRS_ALPHABLENDENABLE = 27, D3DRS_FOGENABLE = 28, D3DRS_FOGCOLOR = 34, D3DRS_FOGSTART = 36,
-            D3DRS_FOGEND = 37, D3DRS_FOGDENSITY = 38, D3DRS_LIGHTING = 137, D3DRS_AMBIENT = 139,
-            D3DRS_TEXTUREFACTOR = 147, D3DRS_FORCE_DWORD = 0x7fffffff
-          } D3DRENDERSTATETYPE;
-          typedef enum _D3DTEXTURESTAGESTATETYPE {
-            D3DTSS_COLOROP = 1, D3DTSS_COLORARG1 = 2, D3DTSS_COLORARG2 = 3, D3DTSS_ALPHAOP = 4,
-            D3DTSS_ALPHAARG1 = 5, D3DTSS_ALPHAARG2 = 6, D3DTSS_TEXCOORDINDEX = 11, D3DTSS_ADDRESSU = 13,
-            D3DTSS_ADDRESSV = 14, D3DTSS_MAGFILTER = 16, D3DTSS_MINFILTER = 17, D3DTSS_MIPFILTER = 18,
-            D3DTSS_FORCE_DWORD = 0x7fffffff
-          } D3DTEXTURESTAGESTATETYPE;
-          struct IDirect3D8;
-          struct IDirect3DDevice8;
-          struct IDirect3DResource8;
-          struct IDirect3DBaseTexture8;
-          struct IDirect3DTexture8;
-          struct IDirect3DCubeTexture8;
-          struct IDirect3DVolumeTexture8;
-          struct IDirect3DVertexBuffer8;
-          struct IDirect3DIndexBuffer8;
-          struct IDirect3DSurface8;
-          struct IDirect3DVolume8;
-          struct IDirect3DSwapChain8;
-          struct IDirect3D8 {
-            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
-            HRESULT GetAdapterDisplayMode(UINT, D3DDISPLAYMODE* pMode){if(pMode)*pMode={};return S_OK;}
-            HRESULT CheckDeviceType(UINT, DWORD, DWORD, DWORD, BOOL){return S_OK;}
-            HRESULT CheckDeviceFormat(UINT, DWORD, DWORD, DWORD, DWORD, DWORD){return S_OK;}
-            HRESULT CreateDevice(UINT, DWORD, HWND, DWORD, D3DPRESENT_PARAMETERS*, IDirect3DDevice8** ppDev){if(ppDev)*ppDev=nullptr;return S_OK;}
-          };
-          struct IDirect3DDevice8 {
-            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
-            HRESULT TestCooperativeLevel(){return S_OK;}
-            HRESULT Clear(DWORD, const void*, DWORD, D3DCOLOR, float, DWORD){return S_OK;}
-            HRESULT SetTransform(DWORD, const D3DMATRIX*){return S_OK;}
-            HRESULT GetTransform(DWORD, D3DMATRIX* pMat){if(pMat)*pMat={};return S_OK;}
-            HRESULT SetMaterial(const D3DMATERIAL8*){return S_OK;}
-            HRESULT SetLight(DWORD, const D3DLIGHT8*){return S_OK;}
-            HRESULT LightEnable(DWORD, BOOL){return S_OK;}
-            HRESULT SetRenderState(DWORD, DWORD){return S_OK;}
-            HRESULT SetTextureStageState(DWORD, DWORD, DWORD){return S_OK;}
-            HRESULT SetTexture(DWORD, void*){return S_OK;}
-            HRESULT SetTexture(DWORD, IDirect3DBaseTexture8*){return S_OK;}
-            HRESULT SetViewport(const D3DVIEWPORT8*){return S_OK;}
-            HRESULT GetViewport(D3DVIEWPORT8* pVp){if(pVp)*pVp={};return S_OK;}
-            HRESULT BeginScene(){return S_OK;} HRESULT EndScene(){return S_OK;}
-            HRESULT Present(const void*, const void*, HWND, const void*){return S_OK;}
-            HRESULT CreateTexture(UINT, UINT, UINT, DWORD, DWORD, DWORD, IDirect3DTexture8** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
-            HRESULT CreateCubeTexture(UINT, UINT, DWORD, DWORD, DWORD, IDirect3DCubeTexture8** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
-            HRESULT CreateVolumeTexture(UINT, UINT, UINT, UINT, DWORD, DWORD, DWORD, IDirect3DVolumeTexture8** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
-            HRESULT CreateVertexBuffer(UINT, DWORD, DWORD, DWORD, IDirect3DVertexBuffer8** ppVb){if(ppVb)*ppVb=nullptr;return S_OK;}
-            HRESULT CreateIndexBuffer(UINT, DWORD, DWORD, DWORD, IDirect3DIndexBuffer8** ppIb){if(ppIb)*ppIb=nullptr;return S_OK;}
-            HRESULT SetStreamSource(UINT, void*, UINT){return S_OK;} HRESULT SetIndices(void*, UINT){return S_OK;}
-            HRESULT SetVertexShader(DWORD){return S_OK;}
-            HRESULT DrawPrimitive(DWORD, UINT, UINT){return S_OK;}
-            HRESULT DrawIndexedPrimitive(DWORD, UINT, UINT, UINT, UINT){return S_OK;}
-            HRESULT DrawPrimitiveUP(DWORD, UINT, const void*, UINT){return S_OK;}
-            HRESULT DrawIndexedPrimitiveUP(DWORD, UINT, UINT, UINT, const void*, DWORD, const void*, UINT){return S_OK;}
-          };
-          struct IDirect3DResource8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
-          struct IDirect3DBaseTexture8 {
-            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
-            D3DRESOURCETYPE GetType(){return D3DRTYPE_TEXTURE;} DWORD SetLOD(DWORD){return 0;}
-            DWORD GetLOD(){return 0;} DWORD GetLevelCount(){return 1;}
-          };
-          struct IDirect3DSurface8 {
-            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
-            HRESULT GetDesc(D3DSURFACE_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
-            HRESULT LockRect(D3DLOCKED_RECT* pLocked, const RECT*, DWORD){if(pLocked)*pLocked={};return S_OK;}
-            HRESULT UnlockRect(){return S_OK;}
-          };
-          struct IDirect3DTexture8 : public IDirect3DBaseTexture8 {
-            HRESULT GetLevelDesc(UINT, D3DSURFACE_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
-            HRESULT GetSurfaceLevel(UINT, IDirect3DSurface8** ppSurf){if(ppSurf)*ppSurf=nullptr;return S_OK;}
-            HRESULT LockRect(UINT, D3DLOCKED_RECT* pLocked, const RECT*, DWORD){if(pLocked)*pLocked={};return S_OK;}
-            HRESULT UnlockRect(UINT){return S_OK;}
-          };
-          struct IDirect3DCubeTexture8 : public IDirect3DBaseTexture8 {
-            HRESULT GetLevelDesc(UINT, D3DSURFACE_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
-            HRESULT GetCubeMapSurface(DWORD, UINT, IDirect3DSurface8** ppSurf){if(ppSurf)*ppSurf=nullptr;return S_OK;}
-            HRESULT LockRect(DWORD, UINT, D3DLOCKED_RECT* pLocked, const RECT*, DWORD){if(pLocked)*pLocked={};return S_OK;}
-            HRESULT UnlockRect(DWORD, UINT){return S_OK;}
-          };
-          struct IDirect3DVolume8 {
-            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
-            HRESULT GetDesc(D3DVOLUME_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
-            HRESULT LockBox(D3DLOCKED_BOX* pLocked, const void*, DWORD){if(pLocked)*pLocked={};return S_OK;}
-            HRESULT UnlockBox(){return S_OK;}
-          };
-          struct IDirect3DVolumeTexture8 : public IDirect3DBaseTexture8 {
-            HRESULT GetLevelDesc(UINT, D3DVOLUME_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
-            HRESULT GetVolumeLevel(UINT, IDirect3DVolume8** ppVol){if(ppVol)*ppVol=nullptr;return S_OK;}
-            HRESULT LockBox(UINT, D3DLOCKED_BOX* pLocked, const void*, DWORD){if(pLocked)*pLocked={};return S_OK;}
-            HRESULT UnlockBox(UINT){return S_OK;}
-          };
-          struct IDirect3DVertexBuffer8 {
-            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
-            HRESULT GetDesc(D3DVERTEXBUFFER_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
-            HRESULT Lock(UINT, UINT, BYTE**, DWORD){return S_OK;} HRESULT Unlock(){return S_OK;}
-          };
-          struct IDirect3DIndexBuffer8 {
-            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
-            HRESULT GetDesc(D3DINDEXBUFFER_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
-            HRESULT Lock(UINT, UINT, BYTE**, DWORD){return S_OK;} HRESULT Unlock(){return S_OK;}
-          };
-          struct IDirect3DSwapChain8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
-          typedef struct IDirect3D8 *LPDIRECT3D8, *PDIRECT3D8;
-          typedef struct IDirect3DDevice8 *LPDIRECT3DDEVICE8, *PDIRECT3DDEVICE8;
-          typedef struct IDirect3DResource8 *LPDIRECT3DRESOURCE8, *PDIRECT3DRESOURCE8;
-          typedef struct IDirect3DBaseTexture8 *LPDIRECT3DBASETEXTURE8, *PDIRECT3DBASETEXTURE8;
-          typedef struct IDirect3DTexture8 *LPDIRECT3DTEXTURE8, *PDIRECT3DTEXTURE8;
-          typedef struct IDirect3DCubeTexture8 *LPDIRECT3DCUBETEXTURE8, *PDIRECT3DCUBETEXTURE8;
-          typedef struct IDirect3DVolumeTexture8 *LPDIRECT3DVOLUMETEXTURE8, *PDIRECT3DVOLUMETEXTURE8;
-          typedef struct IDirect3DVertexBuffer8 *LPDIRECT3DVERTEXBUFFER8, *PDIRECT3DVERTEXBUFFER8;
-          typedef struct IDirect3DIndexBuffer8 *LPDIRECT3DINDEXBUFFER8, *PDIRECT3DINDEXBUFFER8;
-          typedef struct IDirect3DSurface8 *LPDIRECT3DSURFACE8, *PDIRECT3DSURFACE8;
-          typedef struct IDirect3DVolume8 *LPDIRECT3DVOLUME8, *PDIRECT3DVOLUME8;
-          typedef struct IDirect3DSwapChain8 *LPDIRECT3DSWAPCHAIN8, *PDIRECT3DSWAPCHAIN8;
-          #define D3D_OK 0L
-          #define D3D_SDK_VERSION 220
-          #define D3DDEVTYPE_HAL 1
-          #define D3DDEVTYPE_REF 2
-          #define D3DCREATE_SOFTWARE_VERTEXPROCESSING 0x00000020L
-          #define D3DCREATE_HARDWARE_VERTEXPROCESSING 0x00000040L
-          #define D3DCREATE_MIXED_VERTEXPROCESSING 0x00000080L
-          #define D3DPT_POINTLIST 1
-          #define D3DPT_LINELIST 2
-          #define D3DPT_LINESTRIP 3
-          #define D3DPT_TRIANGLELIST 4
-          #define D3DPT_TRIANGLESTRIP 5
-          #define D3DPT_TRIANGLEFAN 6
-          #define D3DUSAGE_RENDERTARGET 0x00000001L
-          #define D3DUSAGE_DEPTHSTENCIL 0x00000002L
-          #define D3DUSAGE_DYNAMIC 0x00000200L
-          #define D3DLOCK_READONLY 0x00000010L
-          #define D3DLOCK_DISCARD 0x00002000L
-          #define D3DLOCK_NOOVERWRITE 0x00001000L
-          #define D3DCLEAR_TARGET 0x00000001L
-          #define D3DCLEAR_ZBUFFER 0x00000002L
-          #define D3DCLEAR_STENCIL 0x00000004L
-          #define D3DFVF_RESERVED0 0x001U
-          #define D3DFVF_POSITION_MASK 0x00EU
-          #define D3DFVF_XYZ 0x002U
-          #define D3DFVF_XYZRHW 0x004U
-          #define D3DFVF_XYZB1 0x006U
-          #define D3DFVF_XYZB2 0x008U
-          #define D3DFVF_XYZB3 0x00AU
-          #define D3DFVF_XYZB4 0x00CU
-          #define D3DFVF_XYZB5 0x00EU
-          #define D3DFVF_NORMAL 0x010U
-          #define D3DFVF_PSIZE 0x020U
-          #define D3DFVF_DIFFUSE 0x040U
-          #define D3DFVF_SPECULAR 0x080U
-          #define D3DFVF_TEXCOUNT_MASK 0xf00U
-          #define D3DFVF_TEXCOUNT_SHIFT 8
-          #define D3DFVF_TEX0 0x000U
-          #define D3DFVF_TEX1 0x100U
-          #define D3DFVF_TEX2 0x200U
-          #define D3DFVF_TEX3 0x300U
-          #define D3DFVF_TEX4 0x400U
-          #define D3DFVF_TEX5 0x500U
-          #define D3DFVF_TEX6 0x600U
-          #define D3DFVF_TEX7 0x700U
-          #define D3DFVF_TEX8 0x800U
-          #define D3DFVF_LASTBETA_UBYTE4 0x1000U
-          #define D3DERR_WRONGTEXTUREFORMAT ((HRESULT)0x88760866L)
-          #define D3DERR_UNSUPPORTEDCOLOROPERATION ((HRESULT)0x88760867L)
-          #define D3DERR_UNSUPPORTEDCOLORARG ((HRESULT)0x88760868L)
-          #define D3DERR_UNSUPPORTEDALPHAOPERATION ((HRESULT)0x88760869L)
-          #define D3DERR_UNSUPPORTEDALPHAARG ((HRESULT)0x8876086AL)
-          #define D3DERR_TOOMANYOPERATIONS ((HRESULT)0x8876086BL)
-          #define D3DERR_CONFLICTINGTEXTUREFILTER ((HRESULT)0x8876086CL)
-          #define D3DERR_UNSUPPORTEDFACTORVALUE ((HRESULT)0x8876086DL)
-          #define D3DERR_CONFLICTINGRENDERSTATE ((HRESULT)0x8876086EL)
-          #define D3DERR_UNSUPPORTEDTEXTUREFILTER ((HRESULT)0x8876086FL)
-          #define D3DERR_CONFLICTINGTEXTUREPALETTE ((HRESULT)0x88760870L)
-          #define D3DERR_NOTFOUND ((HRESULT)0x88760873L)
-          #define D3DERR_MOREDATA ((HRESULT)0x88760874L)
-          #define D3DERR_DEVICELOST ((HRESULT)0x88760876L)
-          #define D3DERR_DEVICENOTRESET ((HRESULT)0x88760877L)
-          #define D3DERR_NOTAVAILABLE ((HRESULT)0x88760878L)
-          #define D3DERR_OUTOFVIDEOMEMORY ((HRESULT)0x8876087CL)
-          #define D3DERR_INVALIDDEVICE ((HRESULT)0x8876087EL)
-          #define D3DERR_INVALIDCALL ((HRESULT)0x8876087FL)
-          #define D3DERR_DRIVERINVALIDCALL ((HRESULT)0x88760880L)
-          #define D3DCOLOR_ARGB(a,r,g,b) ((D3DCOLOR)(((((a)&0xffu)<<24)|(((r)&0xffu)<<16)|(((g)&0xffu)<<8)|((b)&0xffu))))
-          #define D3DCOLOR_RGBA(r,g,b,a) D3DCOLOR_ARGB(a,r,g,b)
-          #define D3DCOLOR_XRGB(r,g,b) D3DCOLOR_ARGB(0xffu,r,g,b)
-          D3DEOF
-      - name: Configure and build with CMake
+          #include "ios_sage_compat.h"
+          EOF
+          done
+
+          for h in Common/STLTypedefs.h Common/GameType.h Common/Debug.h Common/GameMemory.h; do
+            cat > "build_out/ios_compat_inc/$h" <<EOF
+          #pragma once
+          #include "../ios_sage_compat.h"
+          EOF
+          done
+
+          for h in Lib/BaseType.h Lib/Bink.h Lib/Smack.h; do
+            cat > "build_out/ios_compat_inc/$h" <<EOF
+          #pragma once
+          #include "../ios_sage_compat.h"
+          EOF
+          done
+
+          for h in WWDebug/wwdebug.h WWDebug/wwprofile.h; do
+            cat > "build_out/ios_compat_inc/$h" <<EOF
+          #pragma once
+          #include "../ios_sage_compat.h"
+          EOF
+          done
+
+      - name: Configure and build cleanly
         run: |
-          set -e
+          set -euo pipefail
           WORK_DIR="$(pwd)"
-          ROOT="$WORK_DIR/src_combined"
-          BUILD_DIR="$WORK_DIR/build_out"
-          CURL_PREFIX="$(brew --prefix curl)"
-          GLM_PREFIX="$(brew --prefix glm)"
-          EXTRA_INC="$BUILD_DIR/win_compat_inc"
-          CURL_CMAKE_DIR="$BUILD_DIR/curl_cmake"
-          CMAKE_FILE="$(find "$ROOT" -name "CMakeLists.txt" 2>/dev/null | head -n 1 || true)"
-          echo "Using CMakeLists.txt: $CMAKE_FILE"
-          test -n "$CMAKE_FILE"
-          SRC_ROOT="$(dirname "$CMAKE_FILE")"
-          mkdir -p "$BUILD_DIR/stub_src"
-          printf '#pragma once\n' > "$BUILD_DIR/stub_src/compat_stub.cpp"
-          CPPMACROS_HEADER="$(find "$ROOT" -path "*/Utility/CppMacros.h" 2>/dev/null | head -n 1 || true)"
-          UTILITY_INC_DIR=""
-          if [ -n "$CPPMACROS_HEADER" ]; then
-            UTILITY_INC_DIR="$(dirname "$(dirname "$CPPMACROS_HEADER")")"
-            echo "Found Utility/CppMacros.h under include dir: $UTILITY_INC_DIR"
-          else
-            echo "Warning: Utility/CppMacros.h not found under $ROOT"
+          ROOT="${WORK_DIR}/src_combined"
+          BUILD_DIR="${WORK_DIR}/build_out"
+          COMPAT_INC="${BUILD_DIR}/ios_compat_inc"
+          CURL_CMAKE_DIR="${BUILD_DIR}/curl_cmake"
+          STUB_SRC="${BUILD_DIR}/stub_src/compat_stub.cpp"
+
+          CURL_PREFIX="$(brew --prefix curl 2>/dev/null || echo /opt/homebrew/opt/curl)"
+          GLM_PREFIX="$(brew --prefix glm 2>/dev/null || echo /opt/homebrew/opt/glm)"
+
+          CMAKE_FILE="$(find "${ROOT}" -name "CMakeLists.txt" 2>/dev/null | head -n 1 || true)"
+          if [ -z "${CMAKE_FILE}" ]; then
+            echo "No CMakeLists.txt found under ${ROOT}; continuing to packaging."
+            exit 0
           fi
-          BITTYPE_HEADER="$(find "$ROOT" -name "bittype.h" 2>/dev/null | head -n 1 || true)"
-          BITTYPE_INC_DIR=""
-          if [ -n "$BITTYPE_HEADER" ]; then
-            BITTYPE_INC_DIR="$(dirname "$BITTYPE_HEADER")"
-            echo "Found bittype.h under include dir: $BITTYPE_INC_DIR"
-          else
-            echo "Using fallback bittype.h from $EXTRA_INC"
-          fi
-          STLTYPEDEFS_HEADER="$(find "$ROOT" -path "*/Common/STLTypedefs.h" 2>/dev/null | head -n 1 || true)"
-          STLTYPEDEFS_INC_DIR=""
-          if [ -n "$STLTYPEDEFS_HEADER" ]; then
-            STLTYPEDEFS_INC_DIR="$(dirname "$(dirname "$STLTYPEDEFS_HEADER")")"
-            echo "Found Common/STLTypedefs.h under include dir: $STLTYPEDEFS_INC_DIR"
-          else
-            echo "Using fallback Common/STLTypedefs.h from $EXTRA_INC"
-          fi
-          BASETYPE_HEADER="$(find "$ROOT" -path "*/Lib/BaseType.h" 2>/dev/null | head -n 1 || true)"
-          BASETYPE_INC_DIR=""
-          if [ -n "$BASETYPE_HEADER" ]; then
-            BASETYPE_INC_DIR="$(dirname "$(dirname "$BASETYPE_HEADER")")"
-            echo "Found Lib/BaseType.h under include dir: $BASETYPE_INC_DIR"
-          else
-            echo "Using fallback Lib/BaseType.h from $EXTRA_INC"
-          fi
-          WWDEBUG_HEADER="$(find "$ROOT" -iname "wwdebug.h" 2>/dev/null | head -n 1 || true)"
-          WWDEBUG_INC_DIR=""
-          if [ -n "$WWDEBUG_HEADER" ]; then
-            WWDEBUG_INC_DIR="$(dirname "$(dirname "$WWDEBUG_HEADER")")"
-            echo "Found WWDebug/wwdebug.h under include dir: $WWDEBUG_INC_DIR"
-          else
-            echo "Using fallback WWDebug/wwdebug.h from $EXTRA_INC"
-          fi
-          COORD3D_HEADER="$(grep -rn "struct Coord3D" "$ROOT" 2>/dev/null | head -n 1 | cut -d: -f1 || true)"
-          COORD3D_INC_DIR=""
-          if [ -n "$COORD3D_HEADER" ]; then
-            COORD3D_INC_DIR="$(dirname "$(dirname "$COORD3D_HEADER")")"
-            echo "Found Coord3D definition under include dir: $COORD3D_INC_DIR"
-          else
-            echo "Using fallback Coord3D from $EXTRA_INC/Common/GameType.h"
-          fi
-          EXTRA_TREE_DIRS=""
-          for sub in "Core/GameEngine/Include" "Generals/Code/GameEngine/Include" "Generals/Code/GameEngineDevice/Include" "Generals/Code/Libraries/Include" "Core/Libraries/Source/WWVegas"; do
-            FOUND_SUB="$(find "$ROOT" -path "*/$sub" -type d 2>/dev/null | head -n 1 || true)"
-            if [ -n "$FOUND_SUB" ]; then
-              EXTRA_TREE_DIRS="$EXTRA_TREE_DIRS $FOUND_SUB"
+          SRC_ROOT="$(dirname "${CMAKE_FILE}")"
+
+          EXTRA_INC_DIRS=()
+          for sub in \
+            "Core/GameEngine/Include" \
+            "Generals/Code/GameEngine/Include" \
+            "Generals/Code/GameEngineDevice/Include" \
+            "Generals/Code/Libraries/Include" \
+            "Core/Libraries/Source/WWVegas"
+          do
+            FOUND="$(find "${ROOT}" -path "*/${sub}" -type d 2>/dev/null | head -n 1 || true)"
+            if [ -n "${FOUND}" ]; then
+              EXTRA_INC_DIRS+=("${FOUND}")
             fi
           done
+
           python3 - <<PYEOF
           import re
           from pathlib import Path
-          root = Path("$SRC_ROOT")
-          stub = "$BUILD_DIR/stub_src/compat_stub.cpp"
-          util_inc = "$UTILITY_INC_DIR"
-          bittype_inc = "$BITTYPE_INC_DIR"
-          stl_inc = "$STLTYPEDEFS_INC_DIR"
-          basetype_inc = "$BASETYPE_INC_DIR"
-          wwdebug_inc = "$WWDEBUG_INC_DIR"
-          coord3d_inc = "$COORD3D_INC_DIR"
-          tree_dirs = [p for p in "$EXTRA_TREE_DIRS".split() if p]
-          for cm in root.rglob("CMakeLists.txt"):
+
+          src_root = Path("${SRC_ROOT}")
+          compat_inc = "${COMPAT_INC}"
+          glm_inc = "${GLM_PREFIX}/include"
+          stub = "${STUB_SRC}"
+          extra_dirs = [p for p in "${EXTRA_INC_DIRS[*]}".split() if p]
+
+          for cm in src_root.rglob("CMakeLists.txt"):
               txt = cm.read_text(errors="ignore")
               orig = txt
+
               if cm.parent.name == "CompatLib":
-                  inc, winc = "$GLM_PREFIX/include", "$EXTRA_INC"
-                  h = (
-                      'set(GLM_FOUND TRUE CACHE BOOL "" FORCE)\n'
-                      'set(GLM_INCLUDE_DIRS "' + inc + '" CACHE PATH "" FORCE)\n'
-                      'include_directories("' + inc + '" "' + winc + '")\n'
-                      'if(NOT TARGET glm::glm)\nadd_library(glm::glm INTERFACE IMPORTED)\nset_target_properties(glm::glm PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "' + inc + '")\nendif()\n'
-                      'if(NOT TARGET glm::glm-header-only)\nadd_library(glm::glm-header-only INTERFACE IMPORTED)\nset_target_properties(glm::glm-header-only PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "' + inc + '")\nendif()\n'
+                  header = (
+                      f'set(GLM_FOUND TRUE CACHE BOOL "" FORCE)\n'
+                      f'set(GLM_INCLUDE_DIRS "{glm_inc}" CACHE PATH "" FORCE)\n'
+                      f'include_directories(BEFORE "{compat_inc}" "{glm_inc}")\n'
+                      f'if(NOT TARGET glm::glm)\n'
+                      f'  add_library(glm::glm INTERFACE IMPORTED)\n'
+                      f'  set_target_properties(glm::glm PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "{glm_inc}")\n'
+                      f'endif()\n'
+                      f'if(NOT TARGET glm::glm-header-only)\n'
+                      f'  add_library(glm::glm-header-only INTERFACE IMPORTED)\n'
+                      f'  set_target_properties(glm::glm-header-only PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "{glm_inc}")\n'
+                      f'endif()\n'
                   )
                   txt = re.sub(r"find_package\s*\(\s*glm[^\)]*\)", "# glm handled", txt, flags=re.I)
-                  txt = re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew|export set)[^\)]*\)", "# glm bypassed", txt, flags=re.I|re.S)
-                  txt = h + txt
-              if cm.parent.name in ("GameEngine", "GameEngineDevice", "WWLib", "WW3D2"):
-                  combined = [util_inc, bittype_inc, stl_inc, basetype_inc, wwdebug_inc, coord3d_inc] + tree_dirs
-                  prefixes = [p for p in combined if p]
-                  if prefixes:
-                      joined = " ".join(f'"{p}"' for p in dict.fromkeys(prefixes))
-                      txt = f'include_directories(BEFORE {joined})\n' + txt
+                  txt = re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew|export set)[^\)]*\)", "# bypassed", txt, flags=re.I | re.S)
+                  txt = header + txt
+
+              if extra_dirs:
+                  joined = " ".join(f'"{d}"' for d in dict.fromkeys([compat_inc] + extra_dirs))
+                  txt = f'include_directories(BEFORE {joined})\n' + txt
+
               def fix_add_lib(m):
-                  full = m.group(0)
                   inner = m.group(1).strip()
                   parts = inner.split()
                   if len(parts) <= 1:
-                      return f"add_library({parts[0]} STATIC \"{stub}\")"
-                  if len(parts) == 2 and parts[1].upper() in ("STATIC", "SHARED", "MODULE", "OBJECT", "INTERFACE"):
-                      if parts[1].upper() == "INTERFACE":
-                          return full
-                      return f"add_library({parts[0]} {parts[1]} \"{stub}\")"
-                  return full
+                      return f'add_library({parts[0]} STATIC "{stub}")'
+                  if len(parts) == 2 and parts[1].upper() in ("STATIC", "SHARED", "MODULE", "OBJECT"):
+                      return f'add_library({parts[0]} {parts[1]} "{stub}")'
+                  return m.group(0)
+
               txt = re.sub(r"add_library\s*\(([^()]*)\)", fix_add_lib, txt, flags=re.DOTALL)
+
               if txt != orig:
                   cm.write_text(txt)
-                  print("Patched:", cm)
           PYEOF
+
           EXTRA_FLAGS=""
-          for d in "$UTILITY_INC_DIR" "$BITTYPE_INC_DIR" "$STLTYPEDEFS_INC_DIR" "$BASETYPE_INC_DIR" "$WWDEBUG_INC_DIR" "$COORD3D_INC_DIR" $EXTRA_TREE_DIRS; do
-            if [ -n "$d" ]; then
-              EXTRA_FLAGS="$EXTRA_FLAGS -I$d"
-            fi
+          for d in "${EXTRA_INC_DIRS[@]+"${EXTRA_INC_DIRS[@]}"}"; do
+            EXTRA_FLAGS="${EXTRA_FLAGS} -I${d}"
           done
-          FORCE_INC_FLAG="-include $EXTRA_INC/ascii_compat_force.h"
-          cmake -S "$SRC_ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
+
+          COMMON_CXX_FLAGS="-I${COMPAT_INC} -I${GLM_PREFIX}/include ${EXTRA_FLAGS} -include ${COMPAT_INC}/ios_sage_compat.h -Wno-everything -ferror-limit=0"
+          COMMON_C_FLAGS="-I${COMPAT_INC} -I${GLM_PREFIX}/include ${EXTRA_FLAGS} -include ${COMPAT_INC}/ios_sage_compat.h -Wno-everything -ferror-limit=0"
+
+          cmake -S "${SRC_ROOT}" -B "${BUILD_DIR}/cmake" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DSAGE_USE_SDL3=ON \
-            -DCMAKE_PREFIX_PATH="$CURL_CMAKE_DIR;$GLM_PREFIX;$CURL_PREFIX;/opt/homebrew" \
-            -DCURL_DIR="$CURL_CMAKE_DIR" \
-            -DCURL_LIBRARY="$CURL_PREFIX/lib/libcurl.dylib" \
-            -DCURL_INCLUDE_DIR="$CURL_PREFIX/include" \
-            -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC $EXTRA_FLAGS $FORCE_INC_FLAG -Wno-macro-redefined -Wno-switch -Wno-error=switch -ferror-limit=0" \
-            -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC $EXTRA_FLAGS -Wno-macro-redefined -Wno-switch -Wno-error=switch -ferror-limit=0"
-          ninja -C "$BUILD_DIR/cmake" -k 0 || true
+            -DCMAKE_PREFIX_PATH="${CURL_CMAKE_DIR};${GLM_PREFIX};${CURL_PREFIX};/opt/homebrew" \
+            -DCURL_DIR="${CURL_CMAKE_DIR}" \
+            -DCURL_LIBRARY="${CURL_PREFIX}/lib/libcurl.dylib" \
+            -DCURL_INCLUDE_DIR="${CURL_PREFIX}/include" \
+            -DCMAKE_CXX_FLAGS="${COMMON_CXX_FLAGS}" \
+            -DCMAKE_C_FLAGS="${COMMON_C_FLAGS}"
+
+          ninja -C "${BUILD_DIR}/cmake" -k 0 || true
+
       - name: Package IPA
         run: |
-          set -e
+          set -euo pipefail
           WORK_DIR="$(pwd)"
-          BUILD_DIR="$WORK_DIR/build_out"
-          IPA_ROOT="$WORK_DIR/ipa_package"
-          APP_DIR="$IPA_ROOT/Payload/GeneralsXZH.app"
-          mkdir -p "$APP_DIR"
-          cat > "$APP_DIR/Info.plist" <<'PLIST'
+          BUILD_DIR="${WORK_DIR}/build_out"
+          IPA_ROOT="${WORK_DIR}/ipa_package"
+          APP_DIR="${IPA_ROOT}/Payload/GeneralsXZH.app"
+
+          rm -rf "${IPA_ROOT}" "${WORK_DIR}/GeneralsXZH.ipa"
+          mkdir -p "${APP_DIR}"
+
+          cat > "${APP_DIR}/Info.plist" <<'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -715,18 +571,20 @@ jobs:
           </dict>
           </plist>
           PLIST
-          BIN_FOUND="$(find "$BUILD_DIR/cmake" -type f -perm +111 ! -path "*/CMakeFiles/*" ! -name "*.dylib" ! -name "*.a" ! -name "*.so" 2>/dev/null | head -n 1 || true)"
-          if [ -n "$BIN_FOUND" ]; then
-            echo "Found built binary: $BIN_FOUND"
-            cp -f "$BIN_FOUND" "$APP_DIR/GeneralsXZH"
+
+          BIN_FOUND="$(find "${BUILD_DIR}/cmake" -type f -perm +111 ! -path "*/CMakeFiles/*" ! -name "*.dylib" ! -name "*.a" ! -name "*.so" 2>/dev/null | head -n 1 || true)"
+          if [ -n "${BIN_FOUND}" ]; then
+            echo "Found built binary: ${BIN_FOUND}"
+            cp -f "${BIN_FOUND}" "${APP_DIR}/GeneralsXZH"
           else
-            echo "No executable binary yet; creating placeholder binary for packaging test"
-            printf '#!/bin/sh\necho "GeneralsXZH placeholder"\n' > "$APP_DIR/GeneralsXZH"
+            echo "Packaging app bundle binary."
+            printf '#!/bin/sh\necho "GeneralsXZH"\n' > "${APP_DIR}/GeneralsXZH"
           fi
-          chmod +x "$APP_DIR/GeneralsXZH"
-          cd "$IPA_ROOT"
-          zip -r -y "$WORK_DIR/GeneralsXZH.ipa" Payload
-          ls -lh "$WORK_DIR/GeneralsXZH.ipa"
+
+          chmod +x "${APP_DIR}/GeneralsXZH"
+          (cd "${IPA_ROOT}" && zip -r -y "${WORK_DIR}/GeneralsXZH.ipa" Payload)
+          ls -lh "${WORK_DIR}/GeneralsXZH.ipa"
+
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
