@@ -153,12 +153,24 @@ jobs:
             D3DTSS_ADDRESSV = 14, D3DTSS_MAGFILTER = 16, D3DTSS_MINFILTER = 17, D3DTSS_MIPFILTER = 18,
             D3DTSS_FORCE_DWORD = 0x7fffffff
           } D3DTEXTURESTAGESTATETYPE;
+          struct IDirect3D8;
+          struct IDirect3DDevice8;
+          struct IDirect3DResource8;
+          struct IDirect3DBaseTexture8;
+          struct IDirect3DTexture8;
+          struct IDirect3DCubeTexture8;
+          struct IDirect3DVolumeTexture8;
+          struct IDirect3DVertexBuffer8;
+          struct IDirect3DIndexBuffer8;
+          struct IDirect3DSurface8;
+          struct IDirect3DVolume8;
+          struct IDirect3DSwapChain8;
           struct IDirect3D8 {
             ULONG AddRef(){return 1;} ULONG Release(){return 0;}
             HRESULT GetAdapterDisplayMode(UINT, D3DDISPLAYMODE* pMode){if(pMode)*pMode={};return S_OK;}
             HRESULT CheckDeviceType(UINT, DWORD, DWORD, DWORD, BOOL){return S_OK;}
             HRESULT CheckDeviceFormat(UINT, DWORD, DWORD, DWORD, DWORD, DWORD){return S_OK;}
-            HRESULT CreateDevice(UINT, DWORD, HWND, DWORD, D3DPRESENT_PARAMETERS*, void** ppDev){if(ppDev)*ppDev=nullptr;return S_OK;}
+            HRESULT CreateDevice(UINT, DWORD, HWND, DWORD, D3DPRESENT_PARAMETERS*, IDirect3DDevice8** ppDev){if(ppDev)*ppDev=nullptr;return S_OK;}
           };
           struct IDirect3DDevice8 {
             ULONG AddRef(){return 1;} ULONG Release(){return 0;}
@@ -172,15 +184,16 @@ jobs:
             HRESULT SetRenderState(DWORD, DWORD){return S_OK;}
             HRESULT SetTextureStageState(DWORD, DWORD, DWORD){return S_OK;}
             HRESULT SetTexture(DWORD, void*){return S_OK;}
+            HRESULT SetTexture(DWORD, IDirect3DBaseTexture8*){return S_OK;}
             HRESULT SetViewport(const D3DVIEWPORT8*){return S_OK;}
             HRESULT GetViewport(D3DVIEWPORT8* pVp){if(pVp)*pVp={};return S_OK;}
             HRESULT BeginScene(){return S_OK;} HRESULT EndScene(){return S_OK;}
             HRESULT Present(const void*, const void*, HWND, const void*){return S_OK;}
-            HRESULT CreateTexture(UINT, UINT, UINT, DWORD, DWORD, DWORD, void** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
-            HRESULT CreateCubeTexture(UINT, UINT, DWORD, DWORD, DWORD, void** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
-            HRESULT CreateVolumeTexture(UINT, UINT, UINT, UINT, DWORD, DWORD, DWORD, void** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
-            HRESULT CreateVertexBuffer(UINT, DWORD, DWORD, DWORD, void** ppVb){if(ppVb)*ppVb=nullptr;return S_OK;}
-            HRESULT CreateIndexBuffer(UINT, DWORD, DWORD, DWORD, void** ppIb){if(ppIb)*ppIb=nullptr;return S_OK;}
+            HRESULT CreateTexture(UINT, UINT, UINT, DWORD, DWORD, DWORD, IDirect3DTexture8** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
+            HRESULT CreateCubeTexture(UINT, UINT, DWORD, DWORD, DWORD, IDirect3DCubeTexture8** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
+            HRESULT CreateVolumeTexture(UINT, UINT, UINT, UINT, DWORD, DWORD, DWORD, IDirect3DVolumeTexture8** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
+            HRESULT CreateVertexBuffer(UINT, DWORD, DWORD, DWORD, IDirect3DVertexBuffer8** ppVb){if(ppVb)*ppVb=nullptr;return S_OK;}
+            HRESULT CreateIndexBuffer(UINT, DWORD, DWORD, DWORD, IDirect3DIndexBuffer8** ppIb){if(ppIb)*ppIb=nullptr;return S_OK;}
             HRESULT SetStreamSource(UINT, void*, UINT){return S_OK;} HRESULT SetIndices(void*, UINT){return S_OK;}
             HRESULT SetVertexShader(DWORD){return S_OK;}
             HRESULT DrawPrimitive(DWORD, UINT, UINT){return S_OK;}
@@ -251,141 +264,4 @@ jobs:
           #define D3D_SDK_VERSION 220
           #define D3DDEVTYPE_HAL 1
           #define D3DDEVTYPE_REF 2
-          #define D3DCREATE_SOFTWARE_VERTEXPROCESSING 0x00000020L
-          #define D3DCREATE_HARDWARE_VERTEXPROCESSING 0x00000040L
-          #define D3DCREATE_MIXED_VERTEXPROCESSING 0x00000080L
-          #define D3DPT_POINTLIST 1
-          #define D3DPT_LINELIST 2
-          #define D3DPT_LINESTRIP 3
-          #define D3DPT_TRIANGLELIST 4
-          #define D3DPT_TRIANGLESTRIP 5
-          #define D3DPT_TRIANGLEFAN 6
-          #define D3DUSAGE_RENDERTARGET 0x00000001L
-          #define D3DUSAGE_DEPTHSTENCIL 0x00000002L
-          #define D3DUSAGE_DYNAMIC 0x00000200L
-          #define D3DLOCK_READONLY 0x00000010L
-          #define D3DLOCK_DISCARD 0x00002000L
-          #define D3DLOCK_NOOVERWRITE 0x00001000L
-          #define D3DCLEAR_TARGET 0x00000001L
-          #define D3DCLEAR_ZBUFFER 0x00000002L
-          #define D3DCLEAR_STENCIL 0x00000004L
-          #define D3DFVF_RESERVED0 0x001U
-          #define D3DFVF_POSITION_MASK 0x00EU
-          #define D3DFVF_XYZ 0x002U
-          #define D3DFVF_XYZRHW 0x004U
-          #define D3DFVF_XYZB1 0x006U
-          #define D3DFVF_XYZB2 0x008U
-          #define D3DFVF_XYZB3 0x00AU
-          #define D3DFVF_XYZB4 0x00CU
-          #define D3DFVF_XYZB5 0x00EU
-          #define D3DFVF_NORMAL 0x010U
-          #define D3DFVF_PSIZE 0x020U
-          #define D3DFVF_DIFFUSE 0x040U
-          #define D3DFVF_SPECULAR 0x080U
-          #define D3DFVF_TEXCOUNT_MASK 0xf00U
-          #define D3DFVF_TEXCOUNT_SHIFT 8
-          #define D3DFVF_TEX0 0x000U
-          #define D3DFVF_TEX1 0x100U
-          #define D3DFVF_TEX2 0x200U
-          #define D3DFVF_TEX3 0x300U
-          #define D3DFVF_TEX4 0x400U
-          #define D3DFVF_TEX5 0x500U
-          #define D3DFVF_TEX6 0x600U
-          #define D3DFVF_TEX7 0x700U
-          #define D3DFVF_TEX8 0x800U
-          #define D3DFVF_LASTBETA_UBYTE4 0x1000U
-          #define D3DERR_WRONGTEXTUREFORMAT ((HRESULT)0x88760866L)
-          #define D3DERR_UNSUPPORTEDCOLOROPERATION ((HRESULT)0x88760867L)
-          #define D3DERR_UNSUPPORTEDCOLORARG ((HRESULT)0x88760868L)
-          #define D3DERR_UNSUPPORTEDALPHAOPERATION ((HRESULT)0x88760869L)
-          #define D3DERR_UNSUPPORTEDALPHAARG ((HRESULT)0x8876086AL)
-          #define D3DERR_TOOMANYOPERATIONS ((HRESULT)0x8876086BL)
-          #define D3DERR_CONFLICTINGTEXTUREFILTER ((HRESULT)0x8876086CL)
-          #define D3DERR_UNSUPPORTEDFACTORVALUE ((HRESULT)0x8876086DL)
-          #define D3DERR_CONFLICTINGRENDERSTATE ((HRESULT)0x8876086EL)
-          #define D3DERR_UNSUPPORTEDTEXTUREFILTER ((HRESULT)0x8876086FL)
-          #define D3DERR_CONFLICTINGTEXTUREPALETTE ((HRESULT)0x88760870L)
-          #define D3DERR_NOTFOUND ((HRESULT)0x88760873L)
-          #define D3DERR_MOREDATA ((HRESULT)0x88760874L)
-          #define D3DERR_DEVICELOST ((HRESULT)0x88760876L)
-          #define D3DERR_DEVICENOTRESET ((HRESULT)0x88760877L)
-          #define D3DERR_NOTAVAILABLE ((HRESULT)0x88760878L)
-          #define D3DERR_OUTOFVIDEOMEMORY ((HRESULT)0x8876087CL)
-          #define D3DERR_INVALIDDEVICE ((HRESULT)0x8876087EL)
-          #define D3DERR_INVALIDCALL ((HRESULT)0x8876087FL)
-          #define D3DERR_DRIVERINVALIDCALL ((HRESULT)0x88760880L)
-          #define D3DCOLOR_ARGB(a,r,g,b) ((D3DCOLOR)(((((a)&0xffu)<<24)|(((r)&0xffu)<<16)|(((g)&0xffu)<<8)|((b)&0xffu))))
-          #define D3DCOLOR_RGBA(r,g,b,a) D3DCOLOR_ARGB(a,r,g,b)
-          #define D3DCOLOR_XRGB(r,g,b) D3DCOLOR_ARGB(0xffu,r,g,b)
-          D3DEOF
-          COMPAT_CMAKE="$ROOT/GeneralsMD/Code/CompatLib/CMakeLists.txt"
-          if [ -f "$COMPAT_CMAKE" ]; then
-            cat << 'PYEOF' > "$BUILD_DIR/patch.py"
-          import re, sys
-          from pathlib import Path
-          p = Path(sys.argv[1])
-          inc, winc = sys.argv[2], sys.argv[3]
-          s = p.read_text(errors="ignore")
-          h = (
-              'set(GLM_FOUND TRUE CACHE BOOL "" FORCE)\n'
-              'set(GLM_INCLUDE_DIRS "' + inc + '" CACHE PATH "" FORCE)\n'
-              'include_directories("' + inc + '" "' + winc + '")\n'
-              'if(NOT TARGET glm::glm)\nadd_library(glm::glm INTERFACE IMPORTED)\nset_target_properties(glm::glm PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "' + inc + '")\nendif()\n'
-              'if(NOT TARGET glm::glm-header-only)\nadd_library(glm::glm-header-only INTERFACE IMPORTED)\nset_target_properties(glm::glm-header-only PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "' + inc + '")\nendif()\n'
-          )
-          s = re.sub(r"find_package\s*\(\s*glm[^\)]*\)", "# glm handled", s, flags=re.I)
-          s = re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew|export set)[^\)]*\)", "# glm bypassed", s, flags=re.I|re.S)
-          p.write_text(h + s)
-          PYEOF
-            python3 "$BUILD_DIR/patch.py" "$COMPAT_CMAKE" "$GLM_PREFIX/include" "$EXTRA_INC"
-          fi
-          if [ -f "$ROOT/CMakeLists.txt" ]; then
-            cmake -S "$ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DSAGE_USE_SDL3=ON \
-              -DCMAKE_PREFIX_PATH="$CURL_CMAKE_DIR;$GLM_PREFIX;$CURL_PREFIX;/opt/homebrew" \
-              -DCURL_DIR="$CURL_CMAKE_DIR" \
-              -DCURL_LIBRARY="$CURL_PREFIX/lib/libcurl.dylib" \
-              -DCURL_INCLUDE_DIR="$CURL_PREFIX/include" \
-              -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined -Wno-switch -Wno-error=switch -ferror-limit=0" \
-              -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined -Wno-switch -Wno-error=switch -ferror-limit=0"
-            ninja -C "$BUILD_DIR/cmake" -k 1
-          fi
-          if [ -f "$ROOT/ios/project.yml" ]; then
-            cd "$ROOT/ios"
-            xcodegen generate
-            xcodebuild \
-              -project GeneralsXZH.xcodeproj \
-              -scheme GeneralsXZH \
-              -sdk iphoneos \
-              -configuration Release \
-              -derivedDataPath "$BUILD_DIR/derived" \
-              CODE_SIGNING_ALLOWED=NO \
-              CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGN_IDENTITY="" \
-              AD_HOC_CODE_SIGNING_ALLOWED=YES \
-              build
-          fi
-          APP_PATH=$(find "$BUILD_DIR" -name "*.app" -type d | head -n 1)
-          if [ -n "$APP_PATH" ]; then
-            ls -lh "$APP_PATH"
-            ENGINE_BIN=$(find "$BUILD_DIR/cmake" -type f -perm +111 \( -name "*generals*" -o -name "*Generals*" -o -name "*z_generals*" \) 2>/dev/null | head -n 1 || true)
-            if [ -n "$ENGINE_BIN" ]; then
-              APP_BIN_NAME=$(basename "$APP_PATH" .app)
-              cp -f "$ENGINE_BIN" "$APP_PATH/$APP_BIN_NAME"
-              chmod +x "$APP_PATH/$APP_BIN_NAME"
-            fi
-            cp -R "$APP_PATH" "$IPA_ROOT/Payload/"
-            cd "$IPA_ROOT"
-            zip -r -y "$(pwd)/../GeneralsXZH.ipa" Payload
-            ls -lh "$(pwd)/../GeneralsXZH.ipa"
-          else
-            echo "ERROR: No .app bundle was produced."
-            exit 1
-          fi
-      - name: Upload IPA Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: GeneralsXZH-iOS-IPA
-          path: GeneralsXZH.ipa
-          if-no-files-found: error
+          #define D3DCREATE_SOFTWARE_VERTEXPROCESSING 0x0000002
