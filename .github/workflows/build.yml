@@ -95,6 +95,18 @@ jobs:
           #define SUCCEEDED(hr) (((HRESULT)(hr)) >= 0)
           #endif
           WEOF
+          cat > build_out/win_compat_inc/bittype.h <<'BTEOF'
+          #pragma once
+          #include <cstdint>
+          typedef int8_t bit8;
+          typedef int16_t bit16;
+          typedef int32_t bit32;
+          typedef int64_t bit64;
+          typedef uint8_t ubit8;
+          typedef uint16_t ubit16;
+          typedef uint32_t ubit32;
+          typedef uint64_t ubit64;
+          BTEOF
           cat > build_out/win_compat_inc/d3d8.h <<'D3DEOF'
           #pragma once
           #include <cstdint>
@@ -352,12 +364,21 @@ jobs:
           else
             echo "Warning: Utility/CppMacros.h not found under $ROOT"
           fi
+          BITTYPE_HEADER="$(find "$ROOT" -name "bittype.h" 2>/dev/null | head -n 1 || true)"
+          BITTYPE_INC_DIR=""
+          if [ -n "$BITTYPE_HEADER" ]; then
+            BITTYPE_INC_DIR="$(dirname "$BITTYPE_HEADER")"
+            echo "Found bittype.h under include dir: $BITTYPE_INC_DIR"
+          else
+            echo "Using fallback bittype.h from $EXTRA_INC"
+          fi
           python3 - <<PYEOF
           import re
           from pathlib import Path
           root = Path("$SRC_ROOT")
           stub = "$BUILD_DIR/stub_src/compat_stub.cpp"
           util_inc = "$UTILITY_INC_DIR"
+          bittype_inc = "$BITTYPE_INC_DIR"
           for cm in root.rglob("CMakeLists.txt"):
               txt = cm.read_text(errors="ignore")
               orig = txt
@@ -375,6 +396,8 @@ jobs:
                   txt = h + txt
               if util_inc and cm.parent.name == "GameEngine":
                   txt = f'include_directories(BEFORE "{util_inc}")\n' + txt
+              if bittype_inc and cm.parent.name in ("CompatLib", "GameEngine"):
+                  txt = f'include_directories(BEFORE "{bittype_inc}")\n' + txt
               def fix_add_lib(m):
                   full = m.group(0)
                   inner = m.group(1).strip()
@@ -391,9 +414,12 @@ jobs:
                   cm.write_text(txt)
                   print("Patched:", cm)
           PYEOF
-          UTIL_FLAG=""
+          EXTRA_FLAGS=""
           if [ -n "$UTILITY_INC_DIR" ]; then
-            UTIL_FLAG="-I$UTILITY_INC_DIR"
+            EXTRA_FLAGS="$EXTRA_FLAGS -I$UTILITY_INC_DIR"
+          fi
+          if [ -n "$BITTYPE_INC_DIR" ]; then
+            EXTRA_FLAGS="$EXTRA_FLAGS -I$BITTYPE_INC_DIR"
           fi
           cmake -S "$SRC_ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -402,8 +428,8 @@ jobs:
             -DCURL_DIR="$CURL_CMAKE_DIR" \
             -DCURL_LIBRARY="$CURL_PREFIX/lib/libcurl.dylib" \
             -DCURL_INCLUDE_DIR="$CURL_PREFIX/include" \
-            -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC $UTIL_FLAG -Wno-macro-redefined -Wno-switch -Wno-error=switch -ferror-limit=0" \
-            -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC $UTIL_FLAG -Wno-macro-redefined -Wno-switch -Wno-error=switch -ferror-limit=0"
+            -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC $EXTRA_FLAGS -Wno-macro-redefined -Wno-switch -Wno-error=switch -ferror-limit=0" \
+            -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC $EXTRA_FLAGS -Wno-macro-redefined -Wno-switch -Wno-error=switch -ferror-limit=0"
           ninja -C "$BUILD_DIR/cmake" -k 0 || true
       - name: Package IPA
         run: |
