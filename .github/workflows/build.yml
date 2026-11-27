@@ -153,6 +153,36 @@ jobs:
           #define TRUE 1
           #endif
           BTYPEEOF
+          cat > build_out/win_compat_inc/Common/GameType.h <<'GTYPEEOF'
+          #pragma once
+          #include "../Lib/BaseType.h"
+          struct Coord2D {
+            Real x = 0.0f;
+            Real y = 0.0f;
+            bool operator==(const Coord2D& o) const { return x == o.x && y == o.y; }
+            bool operator!=(const Coord2D& o) const { return !(*this == o); }
+          };
+          struct Coord3D {
+            Real x = 0.0f;
+            Real y = 0.0f;
+            Real z = 0.0f;
+            bool operator==(const Coord3D& o) const { return x == o.x && y == o.y && z == o.z; }
+            bool operator!=(const Coord3D& o) const { return !(*this == o); }
+          };
+          struct ICoord2D {
+            Int x = 0;
+            Int y = 0;
+            bool operator==(const ICoord2D& o) const { return x == o.x && y == o.y; }
+            bool operator!=(const ICoord2D& o) const { return !(*this == o); }
+          };
+          struct ICoord3D {
+            Int x = 0;
+            Int y = 0;
+            Int z = 0;
+            bool operator==(const ICoord3D& o) const { return x == o.x && y == o.y && z == o.z; }
+            bool operator!=(const ICoord3D& o) const { return !(*this == o); }
+          };
+          GTYPEEOF
           cat > build_out/win_compat_inc/Common/Debug.h <<'DBGEOF'
           #pragma once
           #define DEBUG_ASSERTCRASH(exp, ...) ((void)0)
@@ -489,6 +519,14 @@ jobs:
           else
             echo "Using fallback WWDebug/wwdebug.h from $EXTRA_INC"
           fi
+          COORD3D_HEADER="$(grep -rn "struct Coord3D" "$ROOT" 2>/dev/null | head -n 1 | cut -d: -f1 || true)"
+          COORD3D_INC_DIR=""
+          if [ -n "$COORD3D_HEADER" ]; then
+            COORD3D_INC_DIR="$(dirname "$(dirname "$COORD3D_HEADER")")"
+            echo "Found Coord3D definition under include dir: $COORD3D_INC_DIR"
+          else
+            echo "Using fallback Coord3D from $EXTRA_INC/Common/GameType.h"
+          fi
           EXTRA_TREE_DIRS=""
           for sub in "Core/GameEngine/Include" "Generals/Code/GameEngine/Include" "Generals/Code/GameEngineDevice/Include" "Generals/Code/Libraries/Include" "Core/Libraries/Source/WWVegas"; do
             FOUND_SUB="$(find "$ROOT" -path "*/$sub" -type d 2>/dev/null | head -n 1 || true)"
@@ -506,6 +544,7 @@ jobs:
           stl_inc = "$STLTYPEDEFS_INC_DIR"
           basetype_inc = "$BASETYPE_INC_DIR"
           wwdebug_inc = "$WWDEBUG_INC_DIR"
+          coord3d_inc = "$COORD3D_INC_DIR"
           tree_dirs = [p for p in "$EXTRA_TREE_DIRS".split() if p]
           for cm in root.rglob("CMakeLists.txt"):
               txt = cm.read_text(errors="ignore")
@@ -523,7 +562,7 @@ jobs:
                   txt = re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew|export set)[^\)]*\)", "# glm bypassed", txt, flags=re.I|re.S)
                   txt = h + txt
               if cm.parent.name in ("GameEngine", "GameEngineDevice", "WWLib", "WW3D2"):
-                  combined = [util_inc, bittype_inc, stl_inc, basetype_inc, wwdebug_inc] + tree_dirs
+                  combined = [util_inc, bittype_inc, stl_inc, basetype_inc, wwdebug_inc, coord3d_inc] + tree_dirs
                   prefixes = [p for p in combined if p]
                   if prefixes:
                       joined = " ".join(f'"{p}"' for p in dict.fromkeys(prefixes))
@@ -545,7 +584,7 @@ jobs:
                   print("Patched:", cm)
           PYEOF
           EXTRA_FLAGS=""
-          for d in "$UTILITY_INC_DIR" "$BITTYPE_INC_DIR" "$STLTYPEDEFS_INC_DIR" "$BASETYPE_INC_DIR" "$WWDEBUG_INC_DIR" $EXTRA_TREE_DIRS; do
+          for d in "$UTILITY_INC_DIR" "$BITTYPE_INC_DIR" "$STLTYPEDEFS_INC_DIR" "$BASETYPE_INC_DIR" "$WWDEBUG_INC_DIR" "$COORD3D_INC_DIR" $EXTRA_TREE_DIRS; do
             if [ -n "$d" ]; then
               EXTRA_FLAGS="$EXTRA_FLAGS -I$d"
             fi
