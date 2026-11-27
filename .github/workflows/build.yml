@@ -34,10 +34,10 @@ jobs:
 
           CURL_PREFIX="$(brew --prefix curl)"
           GLM_PREFIX="$(brew --prefix glm)"
-          CURL_CMAKE_DIR="$BUILD_DIR/fake_curl_cmake"
-          mkdir -p "$CURL_CMAKE_DIR"
+          FAKE_CMAKE_DIR="$BUILD_DIR/fake_cmake"
+          mkdir -p "$FAKE_CMAKE_DIR"
 
-          cat > "$CURL_CMAKE_DIR/CURLConfig.cmake" <<EOF
+          cat > "$FAKE_CMAKE_DIR/CURLConfig.cmake" <<EOF
           include_guard(GLOBAL)
           set(CURL_FOUND TRUE)
           set(CURL_INCLUDE_DIRS "$CURL_PREFIX/include")
@@ -50,17 +50,42 @@ jobs:
             )
           endif()
           EOF
-          cp "$CURL_CMAKE_DIR/CURLConfig.cmake" "$CURL_CMAKE_DIR/curl-config.cmake"
+          cp "$FAKE_CMAKE_DIR/CURLConfig.cmake" "$FAKE_CMAKE_DIR/curl-config.cmake"
+
+          cat > "$FAKE_CMAKE_DIR/FindGLM.cmake" <<EOF
+          set(GLM_FOUND TRUE)
+          set(glm_FOUND TRUE)
+          set(GLM_INCLUDE_DIRS "$GLM_PREFIX/include")
+          if(NOT TARGET glm::glm)
+            add_library(glm::glm INTERFACE IMPORTED)
+            set_target_properties(glm::glm PROPERTIES
+              INTERFACE_INCLUDE_DIRECTORIES "$GLM_PREFIX/include"
+            )
+          endif()
+          EOF
+          cp "$FAKE_CMAKE_DIR/FindGLM.cmake" "$FAKE_CMAKE_DIR/Findglm.cmake"
+          cp "$FAKE_CMAKE_DIR/FindGLM.cmake" "$FAKE_CMAKE_DIR/GLMConfig.cmake"
+          cp "$FAKE_CMAKE_DIR/FindGLM.cmake" "$FAKE_CMAKE_DIR/glmConfig.cmake"
+
+          if [ -f "$ROOT/GeneralsMD/Code/CompatLib/CMakeLists.txt" ]; then
+            echo "=== CompatLib/CMakeLists.txt ==="
+            nl -ba "$ROOT/GeneralsMD/Code/CompatLib/CMakeLists.txt" | sed -n '1,45p' || true
+          fi
 
           if [ -f "$ROOT/CMakeLists.txt" ]; then
-            echo "=== Configuring CMake with SDL3, CURL, and GLM ==="
+            echo "=== Configuring CMake ==="
             cmake -S "$ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
               -DSAGE_USE_SDL3=ON \
-              -DCMAKE_PREFIX_PATH="$CURL_CMAKE_DIR;$GLM_PREFIX;$CURL_PREFIX;/opt/homebrew" \
-              -DCURL_DIR="$CURL_CMAKE_DIR" \
-              -DCURL_LIBRARY="$CURL_PREFIX/lib/libcurl.dylib" \
-              -DCURL_INCLUDE_DIR="$CURL_PREFIX/include"
+              -DCMAKE_MODULE_PATH="$FAKE_CMAKE_DIR" \
+              -DCMAKE_PREFIX_PATH="$FAKE_CMAKE_DIR;$GLM_PREFIX;$CURL_PREFIX;/opt/homebrew" \
+              -DCURL_DIR="$FAKE_CMAKE_DIR" \
+              -DGLM_DIR="$FAKE_CMAKE_DIR" \
+              -Dglm_DIR="$FAKE_CMAKE_DIR" \
+              -DGLM_FOUND=ON \
+              -Dglm_FOUND=ON \
+              -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include" \
+              -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include"
             echo "=== Building CMake targets ==="
             cmake --build "$BUILD_DIR/cmake" --parallel
           fi
