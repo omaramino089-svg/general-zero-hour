@@ -1,5 +1,125 @@
-          COMPAT_CMAKE="$ROOT/GeneralsMD/Code/CompatLib/CMakeLists.txt"
-          if [ -f "$COMPAT_CMAKE" ]; then
-            echo "=== Patching CompatLib/CMakeLists.txt for GLM ==="
-            python3 -c 'import re, sys; from pathlib import Path; p = Path(sys.argv[1]); inc = sys.argv[2]; t = p.read_text(encoding="utf-8", errors="ignore"); h = "set(GLM_FOUND TRUE CACHE BOOL \"\" FORCE)\nset(glm_FOUND TRUE CACHE BOOL \"\" FORCE)\nset(GLM_INCLUDE_DIRS \"" + inc + "\" CACHE PATH \"\" FORCE)\ninclude_directories(\"" + inc + "\")\nif(NOT TARGET glm::glm)\n  add_library(glm::glm INTERFACE IMPORTED)\n  set_target_properties(glm::glm PROPERTIES INTERFACE_INCLUDE_DIRECTORIES \"" + inc + "\")\nendif()\n"; t = re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew)[^\)]*\)", "# GLM check bypassed", t, flags=re.I | re.S); p.write_text(h + t, encoding="utf-8")' "$COMPAT_CMAKE" "$GLM_INC"
+
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Unpack archives
+        run: |
+          mkdir -p src_combined
+          shopt -s nullglob
+          FILES=( *.zip )
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "ERROR: No ZIP archives found"
+            exit 1
           fi
+          for z in "${FILES[@]}"; do
+            echo "Extracting $z..."
+            unzip -q -o "$z" -d src_combined
+          done
+
+      - name: Install tools
+        run: |
+          brew update
+          brew install xcodegen cmake ninja sdl3 curl glm freetype fontconfig pkg-config
+
+      - name: Configure dependencies
+        run: |
+          GLM_PREFIX="$(brew --prefix glm)"
+          CURL_PREFIX="$(brew --prefix curl)"
+          echo "GLM_PREFIX=$GLM_PREFIX" >> $GITHUB_ENV
+          echo "CURL_PREFIX=$CURL_PREFIX" >> $GITHUB_ENV
+          echo "CMAKE_PREFIX_PATH=$GLM_PREFIX;$CURL_PREFIX;/opt/homebrew" >> $GITHUB_ENV
+          echo "CMAKE_INCLUDE_PATH=$GLM_PREFIX/include" >> $GITHUB_ENV
+          find "$GLM_PREFIX" -iname '*glm*config.cmake' -print
+
+      - name: Build engine and generate iOS IPA
+        run: |
+          set -e
+          ROOT="$(pwd)/src_combined"
+          BUILD_DIR="$(pwd)/build_out"
+          IPA_ROOT="$(pwd)/ipa_package"
+          GLM_PREFIX="$(brew --prefix glm)"
+          CURL_PREFIX="$(brew --prefix curl)"
+
+          mkdir -p "$BUILD_DIR" "$IPA_ROOT/Payload"
+
+          GLM_CONFIG="$(find "$GLM_PREFIX" -type f \( -name 'glmConfig.cmake' -o -name 'glm-config.cmake' -o -name 'GLMConfig.cmake' \) -print -quit)"
+          GLM_CONFIG_DIR="$GLM_PREFIX"
+          if [ -n "$GLM_CONFIG" ]; then
+            GLM_CONFIG_DIR="$(dirname "$GLM_CONFIG")"
+          fi
+
+          if [ -f "$ROOT/CMakeLists.txt" ]; then
+            echo "=== Configuring CMake ==="
+            cmake -S "$ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DSAGE_USE_SDL3=ON \
+              -DCMAKE_PREFIX_PATH="$GLM_PREFIX;$CURL_PREFIX;/opt/homebrew" \
+              -DCMAKE_INCLUDE_PATH="$GLM_PREFIX/include" \
+              -DGLM_ROOT="$GLM_PREFIX" \
+              -DGLM_DIR="$GLM_CONFIG_DIR" \
+              -Dglm_DIR="$GLM_CONFIG_DIR" \
+              -DGLM_INCLUDE_DIR="$GLM_PREFIX/include" \
+              -DCURL_LIBRARY="$CURL_PREFIX/lib/libcurl.dylib" \
+              -DCURL_INCLUDE_DIR="$CURL_PREFIX/include"
+
+            echo "=== Building CMake targets ==="
+            cmake --build "$BUILD_DIR/cmake" --parallel
+          fi
+
+          if [ -f "$ROOT/ios/project.yml" ]; then
+            echo "=== Generating Xcode project ==="
+            cd "$ROOT/ios"
+            xcodegen generate
+
+            xcodebuild \
+              -project GeneralsXZH.xcodeproj \
+              -scheme GeneralsXZH \
+              -sdk iphoneos \
+              -configuration Release \
+              -derivedDataPath "$BUILD_DIR/derived" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              AD_HOC_CODE_SIGNING_ALLOWED=YES \
+              build
+          fi
+
+          APP_PATH=$(find "$BUILD_DIR" -name "*.app" -type d | head -n 1)
+
+          if [ -n "$APP_PATH" ]; then
+            echo "Found app: $APP_PATH"
+
+            ENGINE_BIN=$(find "$BUILD_DIR/cmake" -type f -perm -111 \( -name "*generals*" -o -name "*Generals*" -o -name "*z_generals*" \) 2>/dev/null | head -n 1 || true)
+
+            if [ -n "$ENGINE_BIN" ]; then
+              APP_BIN_NAME=$(basename "$APP_PATH" .app)
+              cp -f "$ENGINE_BIN" "$APP_PATH/$APP_BIN_NAME"
+              chmod +x "$APP_PATH/$APP_BIN_NAME"
+            fi
+
+            cp -R "$APP_PATH" "$IPA_ROOT/Payload/"
+            cd "$IPA_ROOT"
+            zip -r -y "$(pwd)/../GeneralsXZH.ipa" Payload
+            ls -lh "$(pwd)/../GeneralsXZH.ipa"
+          else
+            echo "ERROR: No .app bundle was produced."
+            exit 1
+          fi
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GeneralsXZH-iOS-IPA
+          path: GeneralsXZH.ipa
+          if-no-files-found: error
