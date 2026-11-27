@@ -9,41 +9,29 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Unpack archives
         run: |
           set -e
-          echo "=== Step: Unpack archives ==="
           mkdir -p src_combined
-          ls -la
           for z in *.zip; do
             if [ -f "$z" ]; then
-              echo "Extracting $z..."
               unzip -q -o "$z" -d src_combined
             fi
           done
+          ls -la src_combined
+
       - name: Install tools
         run: |
           set -e
-          echo "=== Step: Install tools ==="
           brew install xcodegen cmake ninja sdl3 curl glm
-      - name: Build engine and generate iOS IPA
+
+      - name: Prepare compatibility headers
         run: |
           set -e
-          echo "=== Step: Build engine and generate iOS IPA ==="
-          WORK_DIR="$(pwd)"
-          ROOT="$WORK_DIR/src_combined"
-          BUILD_DIR="$WORK_DIR/build_out"
-          IPA_ROOT="$WORK_DIR/ipa_package"
-          mkdir -p "$BUILD_DIR" "$IPA_ROOT/Payload"
-
-          echo "Files inside src_combined:"
-          find "$ROOT" -maxdepth 3 2>/dev/null || true
-
+          mkdir -p build_out/win_compat_inc build_out/curl_cmake
           CURL_PREFIX="$(brew --prefix curl)"
-          GLM_PREFIX="$(brew --prefix glm)"
-          CURL_CMAKE_DIR="$BUILD_DIR/curl_cmake"
-          mkdir -p "$CURL_CMAKE_DIR"
-          cat > "$CURL_CMAKE_DIR/CURLConfig.cmake" <<EOF
+          cat > build_out/curl_cmake/CURLConfig.cmake <<EOF
           include_guard(GLOBAL)
           set(CURL_FOUND TRUE)
           set(CURL_INCLUDE_DIRS "$CURL_PREFIX/include")
@@ -56,11 +44,9 @@ jobs:
             )
           endif()
           EOF
-          cp "$CURL_CMAKE_DIR/CURLConfig.cmake" "$CURL_CMAKE_DIR/curl-config.cmake"
+          cp build_out/curl_cmake/CURLConfig.cmake build_out/curl_cmake/curl-config.cmake
 
-          EXTRA_INC="$BUILD_DIR/win_compat_inc"
-          mkdir -p "$EXTRA_INC"
-          cat > "$EXTRA_INC/windows_base.h" <<'WEOF'
+          cat > build_out/win_compat_inc/windows_base.h <<'WEOF'
           #pragma once
           #include <cstdint>
           #include <cstring>
@@ -114,7 +100,7 @@ jobs:
           #endif
           WEOF
 
-          cat > "$EXTRA_INC/d3d8.h" <<'D3DEOF'
+          cat > build_out/win_compat_inc/d3d8.h <<'D3DEOF'
           #pragma once
           #include <cstdint>
           #include "windows_base.h"
@@ -192,4 +178,154 @@ jobs:
             ULONG AddRef(){return 1;} ULONG Release(){return 0;}
             HRESULT TestCooperativeLevel(){return S_OK;}
             HRESULT Clear(DWORD, const void*, DWORD, D3DCOLOR, float, DWORD){return S_OK;}
-            HRESULT SetTransform
+            HRESULT SetTransform(DWORD, const D3DMATRIX*){return S_OK;}
+            HRESULT GetTransform(DWORD, D3DMATRIX* pMat){if(pMat)*pMat={};return S_OK;}
+            HRESULT SetMaterial(const D3DMATERIAL8*){return S_OK;}
+            HRESULT SetLight(DWORD, const D3DLIGHT8*){return S_OK;}
+            HRESULT LightEnable(DWORD, BOOL){return S_OK;}
+            HRESULT SetRenderState(DWORD, DWORD){return S_OK;}
+            HRESULT SetTextureStageState(DWORD, DWORD, DWORD){return S_OK;}
+            HRESULT SetTexture(DWORD, void*){return S_OK;}
+            HRESULT SetTexture(DWORD, IDirect3DBaseTexture8*){return S_OK;}
+            HRESULT SetViewport(const D3DVIEWPORT8*){return S_OK;}
+            HRESULT GetViewport(D3DVIEWPORT8* pVp){if(pVp)*pVp={};return S_OK;}
+            HRESULT BeginScene(){return S_OK;} HRESULT EndScene(){return S_OK;}
+            HRESULT Present(const void*, const void*, HWND, const void*){return S_OK;}
+            HRESULT CreateTexture(UINT, UINT, UINT, DWORD, DWORD, DWORD, IDirect3DTexture8** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
+            HRESULT CreateCubeTexture(UINT, UINT, DWORD, DWORD, DWORD, IDirect3DCubeTexture8** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
+            HRESULT CreateVolumeTexture(UINT, UINT, UINT, UINT, DWORD, DWORD, DWORD, IDirect3DVolumeTexture8** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
+            HRESULT CreateVertexBuffer(UINT, DWORD, DWORD, DWORD, IDirect3DVertexBuffer8** ppVb){if(ppVb)*ppVb=nullptr;return S_OK;}
+            HRESULT CreateIndexBuffer(UINT, DWORD, DWORD, DWORD, IDirect3DIndexBuffer8** ppIb){if(ppIb)*ppIb=nullptr;return S_OK;}
+            HRESULT SetStreamSource(UINT, void*, UINT){return S_OK;} HRESULT SetIndices(void*, UINT){return S_OK;}
+            HRESULT SetVertexShader(DWORD){return S_OK;}
+            HRESULT DrawPrimitive(DWORD, UINT, UINT){return S_OK;}
+            HRESULT DrawIndexedPrimitive(DWORD, UINT, UINT, UINT, UINT){return S_OK;}
+            HRESULT DrawPrimitiveUP(DWORD, UINT, const void*, UINT){return S_OK;}
+            HRESULT DrawIndexedPrimitiveUP(DWORD, UINT, UINT, UINT, const void*, DWORD, const void*, UINT){return S_OK;}
+          };
+          struct IDirect3DResource8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
+          struct IDirect3DBaseTexture8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            D3DRESOURCETYPE GetType(){return D3DRTYPE_TEXTURE;} DWORD SetLOD(DWORD){return 0;}
+            DWORD GetLOD(){return 0;} DWORD GetLevelCount(){return 1;}
+          };
+          struct IDirect3DSurface8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            HRESULT GetDesc(D3DSURFACE_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
+            HRESULT LockRect(D3DLOCKED_RECT* pLocked, const RECT*, DWORD){if(pLocked)*pLocked={};return S_OK;}
+            HRESULT UnlockRect(){return S_OK;}
+          };
+          struct IDirect3DTexture8 : public IDirect3DBaseTexture8 {
+            HRESULT GetLevelDesc(UINT, D3DSURFACE_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
+            HRESULT GetSurfaceLevel(UINT, IDirect3DSurface8** ppSurf){if(ppSurf)*ppSurf=nullptr;return S_OK;}
+            HRESULT LockRect(UINT, D3DLOCKED_RECT* pLocked, const RECT*, DWORD){if(pLocked)*pLocked={};return S_OK;}
+            HRESULT UnlockRect(UINT){return S_OK;}
+          };
+          struct IDirect3DCubeTexture8 : public IDirect3DBaseTexture8 {
+            HRESULT GetLevelDesc(UINT, D3DSURFACE_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
+            HRESULT GetCubeMapSurface(DWORD, UINT, IDirect3DSurface8** ppSurf){if(ppSurf)*ppSurf=nullptr;return S_OK;}
+            HRESULT LockRect(DWORD, UINT, D3DLOCKED_RECT* pLocked, const RECT*, DWORD){if(pLocked)*pLocked={};return S_OK;}
+            HRESULT UnlockRect(DWORD, UINT){return S_OK;}
+          };
+          struct IDirect3DVolume8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            HRESULT GetDesc(D3DVOLUME_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
+            HRESULT LockBox(D3DLOCKED_BOX* pLocked, const void*, DWORD){if(pLocked)*pLocked={};return S_OK;}
+            HRESULT UnlockBox(){return S_OK;}
+          };
+          struct IDirect3DVolumeTexture8 : public IDirect3DBaseTexture8 {
+            HRESULT GetLevelDesc(UINT, D3DVOLUME_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
+            HRESULT GetVolumeLevel(UINT, IDirect3DVolume8** ppVol){if(ppVol)*ppVol=nullptr;return S_OK;}
+            HRESULT LockBox(UINT, D3DLOCKED_BOX* pLocked, const void*, DWORD){if(pLocked)*pLocked={};return S_OK;}
+            HRESULT UnlockBox(UINT){return S_OK;}
+          };
+          struct IDirect3DVertexBuffer8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            HRESULT GetDesc(D3DVERTEXBUFFER_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
+            HRESULT Lock(UINT, UINT, BYTE**, DWORD){return S_OK;} HRESULT Unlock(){return S_OK;}
+          };
+          struct IDirect3DIndexBuffer8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            HRESULT GetDesc(D3DINDEXBUFFER_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
+            HRESULT Lock(UINT, UINT, BYTE**, DWORD){return S_OK;} HRESULT Unlock(){return S_OK;}
+          };
+          struct IDirect3DSwapChain8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
+          typedef struct IDirect3D8 *LPDIRECT3D8, *PDIRECT3D8;
+          typedef struct IDirect3DDevice8 *LPDIRECT3DDEVICE8, *PDIRECT3DDEVICE8;
+          typedef struct IDirect3DResource8 *LPDIRECT3DRESOURCE8, *PDIRECT3DRESOURCE8;
+          typedef struct IDirect3DBaseTexture8 *LPDIRECT3DBASETEXTURE8, *PDIRECT3DBASETEXTURE8;
+          typedef struct IDirect3DTexture8 *LPDIRECT3DTEXTURE8, *PDIRECT3DTEXTURE8;
+          typedef struct IDirect3DCubeTexture8 *LPDIRECT3DCUBETEXTURE8, *PDIRECT3DCUBETEXTURE8;
+          typedef struct IDirect3DVolumeTexture8 *LPDIRECT3DVOLUMETEXTURE8, *PDIRECT3DVOLUMETEXTURE8;
+          typedef struct IDirect3DVertexBuffer8 *LPDIRECT3DVERTEXBUFFER8, *PDIRECT3DVERTEXBUFFER8;
+          typedef struct IDirect3DIndexBuffer8 *LPDIRECT3DINDEXBUFFER8, *PDIRECT3DINDEXBUFFER8;
+          typedef struct IDirect3DSurface8 *LPDIRECT3DSURFACE8, *PDIRECT3DSURFACE8;
+          typedef struct IDirect3DVolume8 *LPDIRECT3DVOLUME8, *PDIRECT3DVOLUME8;
+          typedef struct IDirect3DSwapChain8 *LPDIRECT3DSWAPCHAIN8, *PDIRECT3DSWAPCHAIN8;
+          #define D3D_OK 0L
+          #define D3D_SDK_VERSION 220
+          #define D3DDEVTYPE_HAL 1
+          #define D3DDEVTYPE_REF 2
+          #define D3DCREATE_SOFTWARE_VERTEXPROCESSING 0x00000020L
+          #define D3DCREATE_HARDWARE_VERTEXPROCESSING 0x00000040L
+          #define D3DCREATE_MIXED_VERTEXPROCESSING 0x00000080L
+          #define D3DPT_POINTLIST 1
+          #define D3DPT_LINELIST 2
+          #define D3DPT_LINESTRIP 3
+          #define D3DPT_TRIANGLELIST 4
+          #define D3DPT_TRIANGLESTRIP 5
+          #define D3DPT_TRIANGLEFAN 6
+          #define D3DUSAGE_RENDERTARGET 0x00000001L
+          #define D3DUSAGE_DEPTHSTENCIL 0x00000002L
+          #define D3DUSAGE_DYNAMIC 0x00000200L
+          #define D3DLOCK_READONLY 0x00000010L
+          #define D3DLOCK_DISCARD 0x00002000L
+          #define D3DLOCK_NOOVERWRITE 0x00001000L
+          #define D3DCLEAR_TARGET 0x00000001L
+          #define D3DCLEAR_ZBUFFER 0x00000002L
+          #define D3DCLEAR_STENCIL 0x00000004L
+          #define D3DFVF_RESERVED0 0x001U
+          #define D3DFVF_POSITION_MASK 0x00EU
+          #define D3DFVF_XYZ 0x002U
+          #define D3DFVF_XYZRHW 0x004U
+          #define D3DFVF_XYZB1 0x006U
+          #define D3DFVF_XYZB2 0x008U
+          #define D3DFVF_XYZB3 0x00AU
+          #define D3DFVF_XYZB4 0x00CU
+          #define D3DFVF_XYZB5 0x00EU
+          #define D3DFVF_NORMAL 0x010U
+          #define D3DFVF_PSIZE 0x020U
+          #define D3DFVF_DIFFUSE 0x040U
+          #define D3DFVF_SPECULAR 0x080U
+          #define D3DFVF_TEXCOUNT_MASK 0xf00U
+          #define D3DFVF_TEXCOUNT_SHIFT 8
+          #define D3DFVF_TEX0 0x000U
+          #define D3DFVF_TEX1 0x100U
+          #define D3DFVF_TEX2 0x200U
+          #define D3DFVF_TEX3 0x300U
+          #define D3DFVF_TEX4 0x400U
+          #define D3DFVF_TEX5 0x500U
+          #define D3DFVF_TEX6 0x600U
+          #define D3DFVF_TEX7 0x700U
+          #define D3DFVF_TEX8 0x800U
+          #define D3DFVF_LASTBETA_UBYTE4 0x1000U
+          #define D3DERR_WRONGTEXTUREFORMAT ((HRESULT)0x88760866L)
+          #define D3DERR_UNSUPPORTEDCOLOROPERATION ((HRESULT)0x88760867L)
+          #define D3DERR_UNSUPPORTEDCOLORARG ((HRESULT)0x88760868L)
+          #define D3DERR_UNSUPPORTEDALPHAOPERATION ((HRESULT)0x88760869L)
+          #define D3DERR_UNSUPPORTEDALPHAARG ((HRESULT)0x8876086AL)
+          #define D3DERR_TOOMANYOPERATIONS ((HRESULT)0x8876086BL)
+          #define D3DERR_CONFLICTINGTEXTUREFILTER ((HRESULT)0x8876086CL)
+          #define D3DERR_UNSUPPORTEDFACTORVALUE ((HRESULT)0x8876086DL)
+          #define D3DERR_CONFLICTINGRENDERSTATE ((HRESULT)0x8876086EL)
+          #define D3DERR_UNSUPPORTEDTEXTUREFILTER ((HRESULT)0x8876086FL)
+          #define D3DERR_CONFLICTINGTEXTUREPALETTE ((HRESULT)0x88760870L)
+          #define D3DERR_NOTFOUND ((HRESULT)0x88760873L)
+          #define D3DERR_MOREDATA ((HRESULT)0x88760874L)
+          #define D3DERR_DEVICELOST ((HRESULT)0x88760876L)
+          #define D3DERR_DEVICENOTRESET ((HRESULT)0x88760877L)
+          #define D3DERR_NOTAVAILABLE ((HRESULT)0x88760878L)
+          #define D3DERR_OUTOFVIDEOMEMORY ((HRESULT)0x8876087CL)
+          #define D3DERR_INVALIDDEVICE ((HRESULT)0x8876087EL)
+          #define D3DERR_INVALIDCALL ((HRESULT)0x8876087FL)
+          #define D3DERR_DRIVERINVALIDCALL ((HRESULT)0x88760880L)
