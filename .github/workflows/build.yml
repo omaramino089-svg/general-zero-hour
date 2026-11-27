@@ -120,7 +120,7 @@ jobs:
           typedef struct _D3DSURFACE_DESC { DWORD Format, Type, Usage, Pool; UINT Size; DWORD MultiSampleType; UINT Width, Height; } D3DSURFACE_DESC;
           typedef struct _D3DVOLUME_DESC { DWORD Format, Type, Usage, Pool; UINT Width, Height, Depth; } D3DVOLUME_DESC;
           typedef struct _D3DLOCKED_RECT { INT Pitch; void* pBits; } D3DLOCKED_RECT;
-          typedef struct _D3DLOCKED_BOX { INT RowPitch, SlicePitch; void* pBits; } D3DLOCKED_BOX;
+          typedef struct _D3DLOCKED_BOX { INT RowPitch; INT SlicePitch; void* pBits; } D3DLOCKED_BOX;
           typedef struct _D3DVERTEXBUFFER_DESC { DWORD Format, Type, Usage, Pool; UINT Size, FVF; } D3DVERTEXBUFFER_DESC;
           typedef struct _D3DINDEXBUFFER_DESC { DWORD Format, Type, Usage, Pool; UINT Size; } D3DINDEXBUFFER_DESC;
           typedef struct _D3DPRESENT_PARAMETERS_ {
@@ -191,7 +191,7 @@ jobs:
           struct IDirect3DResource8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
           struct IDirect3DBaseTexture8 {
             ULONG AddRef(){return 1;} ULONG Release(){return 0;}
-            DWORD GetType(){return D3DRTYPE_TEXTURE;} DWORD SetLOD(DWORD){return 0;}
+            D3DRESOURCETYPE GetType(){return D3DRTYPE_TEXTURE;} DWORD SetLOD(DWORD){return 0;}
             DWORD GetLOD(){return 0;} DWORD GetLevelCount(){return 1;}
           };
           struct IDirect3DSurface8 {
