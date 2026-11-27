@@ -1,4 +1,4 @@
-name: Build iOS App
+name: Build iOS IPA
 
 on:
   workflow_dispatch:
@@ -12,5 +12,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: List project files
-        run: ls -la
+      - name: Unpack and inspect archives
+        run: |
+          mkdir -p src_combined
+          for z in *.zip; do
+            echo "Extracting $z..."
+            unzip -q -o "$z" -d src_combined
+          done
+          echo "--- Top level of src_combined ---"
+          ls -la src_combined
+          echo "--- Search for CMakeLists.txt, ios, scripts ---"
+          find src_combined -maxdepth 4 \( -name "CMakeLists.txt" -o -name "ios" -o -name "scripts" \)
