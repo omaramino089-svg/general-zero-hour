@@ -285,4 +285,6 @@ jobs:
           D3DEOF
           fi
           COMPAT_CMAKE="$ROOT/GeneralsMD/Code/CompatLib/CMakeLists.txt"
-          if [ -f "$COMPAT_CMAKE" ];
+          if [ -f "$COMPAT_CMAKE" ]; then
+            echo "Patching CompatLib"
+            cat << 'PY
