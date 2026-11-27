@@ -26,7 +26,7 @@ jobs:
       - name: Prepare compatibility headers
         run: |
           set -e
-          mkdir -p build_out/win_compat_inc build_out/curl_cmake
+          mkdir -p build_out/win_compat_inc/Common build_out/curl_cmake
           CURL_PREFIX="$(brew --prefix curl)"
           cat > build_out/curl_cmake/CURLConfig.cmake <<EOF
           include_guard(GLOBAL)
@@ -107,6 +107,20 @@ jobs:
           typedef uint32_t ubit32;
           typedef uint64_t ubit64;
           BTEOF
+          cat > build_out/win_compat_inc/Common/STLTypedefs.h <<'STLEOF'
+          #pragma once
+          #include <cstdint>
+          #include <cstddef>
+          #include <string>
+          #include <vector>
+          #include <list>
+          #include <map>
+          #include <set>
+          #include <utility>
+          #include <algorithm>
+          using AsciiString = std::string;
+          using UnicodeString = std::wstring;
+          STLEOF
           cat > build_out/win_compat_inc/d3d8.h <<'D3DEOF'
           #pragma once
           #include <cstdint>
@@ -372,6 +386,14 @@ jobs:
           else
             echo "Using fallback bittype.h from $EXTRA_INC"
           fi
+          STLTYPEDEFS_HEADER="$(find "$ROOT" -path "*/Common/STLTypedefs.h" 2>/dev/null | head -n 1 || true)"
+          STLTYPEDEFS_INC_DIR=""
+          if [ -n "$STLTYPEDEFS_HEADER" ]; then
+            STLTYPEDEFS_INC_DIR="$(dirname "$(dirname "$STLTYPEDEFS_HEADER")")"
+            echo "Found Common/STLTypedefs.h under include dir: $STLTYPEDEFS_INC_DIR"
+          else
+            echo "Using fallback Common/STLTypedefs.h from $EXTRA_INC"
+          fi
           python3 - <<PYEOF
           import re
           from pathlib import Path
@@ -379,6 +401,7 @@ jobs:
           stub = "$BUILD_DIR/stub_src/compat_stub.cpp"
           util_inc = "$UTILITY_INC_DIR"
           bittype_inc = "$BITTYPE_INC_DIR"
+          stl_inc = "$STLTYPEDEFS_INC_DIR"
           for cm in root.rglob("CMakeLists.txt"):
               txt = cm.read_text(errors="ignore")
               orig = txt
@@ -398,6 +421,8 @@ jobs:
                   txt = f'include_directories(BEFORE "{util_inc}")\n' + txt
               if bittype_inc and cm.parent.name in ("CompatLib", "GameEngine"):
                   txt = f'include_directories(BEFORE "{bittype_inc}")\n' + txt
+              if stl_inc and cm.parent.name in ("GameEngine", "GameEngineDevice"):
+                  txt = f'include_directories(BEFORE "{stl_inc}")\n' + txt
               def fix_add_lib(m):
                   full = m.group(0)
                   inner = m.group(1).strip()
@@ -420,6 +445,9 @@ jobs:
           fi
           if [ -n "$BITTYPE_INC_DIR" ]; then
             EXTRA_FLAGS="$EXTRA_FLAGS -I$BITTYPE_INC_DIR"
+          fi
+          if [ -n "$STLTYPEDEFS_INC_DIR" ]; then
+            EXTRA_FLAGS="$EXTRA_FLAGS -I$STLTYPEDEFS_INC_DIR"
           fi
           cmake -S "$SRC_ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
