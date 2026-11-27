@@ -109,6 +109,15 @@ jobs:
           #ifndef S_OK
           #define S_OK ((HRESULT)0L)
           #endif
+          #ifndef E_FAIL
+          #define E_FAIL ((HRESULT)0x80004005L)
+          #endif
+          #ifndef E_OUTOFMEMORY
+          #define E_OUTOFMEMORY ((HRESULT)0x8007000EL)
+          #endif
+          #ifndef E_INVALIDARG
+          #define E_INVALIDARG ((HRESULT)0x80070057L)
+          #endif
           #ifndef FAILED
           #define FAILED(hr) (((HRESULT)(hr)) < 0)
           #endif
@@ -163,6 +172,26 @@ jobs:
           typedef struct IDirect3DSwapChain8 *LPDIRECT3DSWAPCHAIN8, *PDIRECT3DSWAPCHAIN8;
           #define D3D_OK 0L
           #define D3D_SDK_VERSION 220
+          #define D3DERR_WRONGTEXTUREFORMAT ((HRESULT)0x88760866L)
+          #define D3DERR_UNSUPPORTEDCOLOROPERATION ((HRESULT)0x88760867L)
+          #define D3DERR_UNSUPPORTEDCOLORARG ((HRESULT)0x88760868L)
+          #define D3DERR_UNSUPPORTEDALPHAOPERATION ((HRESULT)0x88760869L)
+          #define D3DERR_UNSUPPORTEDALPHAARG ((HRESULT)0x8876086AL)
+          #define D3DERR_TOOMANYOPERATIONS ((HRESULT)0x8876086BL)
+          #define D3DERR_CONFLICTINGTEXTUREFILTER ((HRESULT)0x8876086CL)
+          #define D3DERR_UNSUPPORTEDFACTORVALUE ((HRESULT)0x8876086DL)
+          #define D3DERR_CONFLICTINGRENDERSTATE ((HRESULT)0x8876086EL)
+          #define D3DERR_UNSUPPORTEDTEXTUREFILTER ((HRESULT)0x8876086FL)
+          #define D3DERR_CONFLICTINGTEXTUREPALETTE ((HRESULT)0x88760870L)
+          #define D3DERR_NOTFOUND ((HRESULT)0x88760873L)
+          #define D3DERR_MOREDATA ((HRESULT)0x88760874L)
+          #define D3DERR_DEVICELOST ((HRESULT)0x88760876L)
+          #define D3DERR_DEVICENOTRESET ((HRESULT)0x88760877L)
+          #define D3DERR_NOTAVAILABLE ((HRESULT)0x88760878L)
+          #define D3DERR_OUTOFVIDEOMEMORY ((HRESULT)0x8876087CL)
+          #define D3DERR_INVALIDDEVICE ((HRESULT)0x8876087EL)
+          #define D3DERR_INVALIDCALL ((HRESULT)0x8876087FL)
+          #define D3DERR_DRIVERINVALIDCALL ((HRESULT)0x88760880L)
           #define D3DCOLOR_ARGB(a,r,g,b) ((D3DCOLOR)(((((a)&0xffu)<<24)|(((r)&0xffu)<<16)|(((g)&0xffu)<<8)|((b)&0xffu))))
           #define D3DCOLOR_RGBA(r,g,b,a) D3DCOLOR_ARGB(a,r,g,b)
           #define D3DCOLOR_XRGB(r,g,b) D3DCOLOR_ARGB(0xffu,r,g,b)
@@ -232,24 +261,4 @@ jobs:
           if [ -n "$APP_PATH" ]; then
             echo "=== Found app: $APP_PATH ==="
             ls -lh "$APP_PATH"
-            ENGINE_BIN=$(find "$BUILD_DIR/cmake" -type f -perm +111 \( -name "*generals*" -o -name "*Generals*" -o -name "*z_generals*" \) 2>/dev/null | head -n 1 || true)
-            if [ -n "$ENGINE_BIN" ]; then
-              echo "Replacing binary with: $ENGINE_BIN"
-              APP_BIN_NAME=$(basename "$APP_PATH" .app)
-              cp -f "$ENGINE_BIN" "$APP_PATH/$APP_BIN_NAME"
-              chmod +x "$APP_PATH/$APP_BIN_NAME"
-            fi
-            cp -R "$APP_PATH" "$IPA_ROOT/Payload/"
-            cd "$IPA_ROOT"
-            zip -r -y "$(pwd)/../GeneralsXZH.ipa" Payload
-            ls -lh "$(pwd)/../GeneralsXZH.ipa"
-          else
-            echo "ERROR: No .app bundle was produced."
-            exit 1
-          fi
-      - name: Upload IPA Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: GeneralsXZH-iOS-IPA
-          path: GeneralsXZH.ipa
-          if-no-files-found: error
+            ENGINE_BIN=$(find "$BUILD_DIR/cmake" -type f -perm +111 \( -name "*generals*" -o
