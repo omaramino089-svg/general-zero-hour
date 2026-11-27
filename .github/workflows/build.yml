@@ -55,17 +55,7 @@ jobs:
           COMPAT_CMAKE="$ROOT/GeneralsMD/Code/CompatLib/CMakeLists.txt"
           if [ -f "$COMPAT_CMAKE" ]; then
             echo "Patching CompatLib"
-            cat << 'EOF' > p.py
-          import re, sys
-          from pathlib import Path
-          p = Path(sys.argv[1])
-          inc = sys.argv[2]
-          t = p.read_text(errors="ignore")
-          h = f'set(GLM_FOUND TRUE CACHE BOOL "" FORCE)\nset(GLM_INCLUDE_DIRS "{inc}" CACHE PATH "" FORCE)\ninclude_directories("{inc}")\nif(NOT TARGET glm::glm)\n  add_library(glm::glm INTERFACE IMPORTED)\n  set_target_properties(glm::glm PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "{inc}")\nendif()\n'
-          t = re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew)[^\)]*\)", "# GLM_BYPASSED", t, flags=re.I|re.S)
-          p.write_text(h + t)
-          EOF
-            python3 p.py "$COMPAT_CMAKE" "$GLM_PREFIX/include"
+            python3 -c 'import pathlib,re,sys;p=pathlib.Path(sys.argv[1]);inc=sys.argv[2];s=p.read_text(errors="ignore");h=f"set(GLM_FOUND TRUE CACHE BOOL \"\" FORCE)\nset(glm_FOUND TRUE CACHE BOOL \"\" FORCE)\nset(GLM_INCLUDE_DIRS \"{inc}\" CACHE PATH \"\" FORCE)\ninclude_directories(\"{inc}\")\nif(NOT TARGET glm::glm)\nadd_library(glm::glm INTERFACE IMPORTED)\nset_target_properties(glm::glm PROPERTIES INTERFACE_INCLUDE_DIRECTORIES \"{inc}\")\nendif()\nif(NOT TARGET glm::glm-header-only)\nadd_library(glm::glm-header-only INTERFACE IMPORTED)\nset_target_properties(glm::glm-header-only PROPERTIES INTERFACE_INCLUDE_DIRECTORIES \"{inc}\")\nendif()\n";s=re.sub(r"find_package\s*\(\s*glm[^\)]*\)","# glm handled",s,flags=re.I);s=re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew|export set)[^\)]*\)","# glm bypassed",s,flags=re.I|re.S);p.write_text(h+s)' "$COMPAT_CMAKE" "$GLM_PREFIX/include"
           fi
 
           if [ -f "$ROOT/CMakeLists.txt" ]; then
