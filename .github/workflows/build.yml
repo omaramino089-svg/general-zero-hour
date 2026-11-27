@@ -20,11 +20,15 @@ jobs:
             unzip -q -o "$z" -d src_combined
           done
 
-      - name: Inspect iOS and scripts folders
+      - name: Inspect project.yml and build scripts
         run: |
-          echo "=== Contents of src_combined/ios ==="
-          ls -la src_combined/ios 2>/dev/null || echo "No src_combined/ios"
-          echo "=== Contents of src_combined/scripts ==="
-          ls -la src_combined/scripts 2>/dev/null || echo "No src_combined/scripts"
-          echo "=== Xcode projects / workspaces / plists ==="
-          find src_combined -maxdepth 4 \( -name "*.xcodeproj" -o -name "*.xcworkspace" -o -name "*ios*" -o -name "*script*" \)
+          echo "=== ios/project.yml ==="
+          cat src_combined/ios/project.yml 2>/dev/null || echo "No ios/project.yml"
+          echo "=== scripts/build ==="
+          ls -la src_combined/scripts/build 2>/dev/null || echo "No scripts/build"
+          for f in src_combined/scripts/build/*; do
+            if [ -f "$f" ]; then
+              echo "--- File: $f ---"
+              cat "$f"
+            fi
+          done
