@@ -520,14 +520,6 @@ jobs:
           #endif /* IOS_SAGE_COMPAT_TYPES_DEFINED */
           CEOF
 
-          cat > build_out/ios_compat_inc/Common/AsciiString.h <<'ASCEOF'
-          #pragma once
-          #include "../ios_sage_compat.h"
-          #ifndef __ASCIISTRING_H_
-          #define __ASCIISTRING_H_
-          #endif
-          ASCEOF
-
           for h in windows_base.h bittype.h d3d8.h; do
             cat > "build_out/ios_compat_inc/$h" <<EOF
           #pragma once
@@ -587,17 +579,47 @@ jobs:
               fi
             done
 
-            python3 - <<PYEOF || true
+            python3 - <<PYEOF
           import re
           from pathlib import Path
 
-          src_root = Path("${SRC_ROOT}")
+          root_dir = Path("${ROOT}")
           compat_inc = "${COMPAT_INC}"
           glm_inc = "${GLM_PREFIX}/include"
           stub = "${STUB_SRC}"
           extra_dirs = [p for p in "${EXTRA_INC_DIRS[*]}".split() if p]
 
-          for cm in src_root.rglob("CMakeLists.txt"):
+          def strip_brace_blocks(text, marker):
+              out = []
+              i = 0
+              n = len(text)
+              while i < n:
+                  idx = text.find(marker, i)
+                  if idx == -1:
+                      out.append(text[i:])
+                      break
+                  line_start = text.rfind("\n", 0, idx)
+                  line_start = 0 if line_start == -1 else line_start + 1
+                  brace_start = text.find("{", idx)
+                  if brace_start == -1:
+                      out.append(text[i:])
+                      break
+                  depth = 0
+                  j = brace_start
+                  while j < n:
+                      if text[j] == "{":
+                          depth += 1
+                      elif text[j] == "}":
+                          depth -= 1
+                          if depth == 0:
+                              j += 1
+                              break
+                      j += 1
+                  out.append(text[i:line_start])
+                  i = j
+              return "".join(out)
+
+          for cm in root_dir.rglob("CMakeLists.txt"):
               txt = cm.read_text(errors="ignore")
               orig = txt
 
@@ -636,6 +658,17 @@ jobs:
 
               if txt != orig:
                   cm.write_text(txt)
+
+          patched = 0
+          for asc_h in root_dir.rglob("AsciiString.h"):
+              atxt = asc_h.read_text(errors="ignore")
+              aorig = atxt
+              atxt = strip_brace_blocks(atxt, "AsciiString::reverseFind")
+              if atxt != aorig:
+                  asc_h.write_text(atxt)
+                  patched += 1
+                  print(f"Patched {asc_h}")
+          print(f"Total AsciiString.h files patched: {patched}")
           PYEOF
 
             EXTRA_FLAGS=""
