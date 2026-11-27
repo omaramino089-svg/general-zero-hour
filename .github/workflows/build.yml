@@ -589,6 +589,36 @@ jobs:
           stub = "${STUB_SRC}"
           extra_dirs = [p for p in "${EXTRA_INC_DIRS[*]}".split() if p]
 
+          def strip_brace_blocks(text, marker):
+              out = []
+              i = 0
+              n = len(text)
+              while i < n:
+                  idx = text.find(marker, i)
+                  if idx == -1:
+                      out.append(text[i:])
+                      break
+                  line_start = text.rfind("\n", 0, idx)
+                  line_start = 0 if line_start == -1 else line_start + 1
+                  brace_start = text.find("{", idx)
+                  if brace_start == -1:
+                      out.append(text[i:])
+                      break
+                  depth = 0
+                  j = brace_start
+                  while j < n:
+                      if text[j] == "{":
+                          depth += 1
+                      elif text[j] == "}":
+                          depth -= 1
+                          if depth == 0:
+                              j += 1
+                              break
+                      j += 1
+                  out.append(text[i:line_start])
+                  i = j
+              return "".join(out)
+
           for cm in src_root.rglob("CMakeLists.txt"):
               txt = cm.read_text(errors="ignore")
               orig = txt
@@ -629,16 +659,10 @@ jobs:
               if txt != orig:
                   cm.write_text(txt)
 
-          # Disable out-of-line method definitions in AsciiString.h that conflict with CompatAsciiString
           for asc_h in src_root.rglob("AsciiString.h"):
               atxt = asc_h.read_text(errors="ignore")
               aorig = atxt
-              atxt = re.sub(
-                  r"(?m)^inline\s+const\s+char\*\s+AsciiString::reverseFind\s*\([^\)]*\)\s*const\s*\{.*?\n\}",
-                  "",
-                  atxt,
-                  flags=re.DOTALL,
-              )
+              atxt = strip_brace_blocks(atxt, "AsciiString::reverseFind")
               if atxt != aorig:
                   asc_h.write_text(atxt)
           PYEOF
