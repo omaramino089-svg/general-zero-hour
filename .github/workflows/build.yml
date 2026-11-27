@@ -351,6 +351,46 @@ jobs:
             void set(const CompatAsciiString& s) { assign(s); }
             void set(const std::string& s) { assign(s); }
             const char* str() const { return c_str(); }
+            int getLength() const { return static_cast<int>(size()); }
+            char getCharAt(int index) const {
+              if (index < 0 || static_cast<size_t>(index) >= size()) return '\0';
+              return (*this)[static_cast<size_t>(index)];
+            }
+            const char* peek() const { return c_str(); }
+            const char* find(char c) const {
+              size_t pos = std::string::find(c);
+              return (pos == npos) ? nullptr : (c_str() + pos);
+            }
+            const char* reverseFind(char c) const {
+              size_t pos = rfind(c);
+              return (pos == npos) ? nullptr : (c_str() + pos);
+            }
+            bool startsWith(const char* s) const {
+              if (!s) return true;
+              size_t len = std::strlen(s);
+              return size() >= len && std::strncmp(c_str(), s, len) == 0;
+            }
+            bool endsWith(const char* s) const {
+              if (!s) return true;
+              size_t len = std::strlen(s);
+              return size() >= len && std::strncmp(c_str() + size() - len, s, len) == 0;
+            }
+            void toLower() {
+              for (char& ch : *this) {
+                ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+              }
+            }
+            void toUpper() {
+              for (char& ch : *this) {
+                ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+              }
+            }
+            void trim() {
+              size_t start = find_first_not_of(" \t\r\n");
+              if (start == npos) { clear(); return; }
+              size_t end = find_last_not_of(" \t\r\n");
+              assign(substr(start, end - start + 1));
+            }
 
             int compare(const CompatAsciiString& o) const { return std::string::compare(o); }
             int compare(const char* s) const { return std::string::compare(s ? s : ""); }
@@ -404,6 +444,12 @@ jobs:
             void set(const CompatUnicodeString& s) { assign(s); }
             void set(const std::wstring& s) { assign(s); }
             const wchar_t* str() const { return c_str(); }
+            int getLength() const { return static_cast<int>(size()); }
+            wchar_t getCharAt(int index) const {
+              if (index < 0 || static_cast<size_t>(index) >= size()) return L'\0';
+              return (*this)[static_cast<size_t>(index)];
+            }
+            const wchar_t* peek() const { return c_str(); }
           };
 
           using AsciiString = CompatAsciiString;
@@ -582,6 +628,19 @@ jobs:
 
               if txt != orig:
                   cm.write_text(txt)
+
+          # Disable out-of-line method definitions in AsciiString.h that conflict with CompatAsciiString
+          for asc_h in src_root.rglob("AsciiString.h"):
+              atxt = asc_h.read_text(errors="ignore")
+              aorig = atxt
+              atxt = re.sub(
+                  r"(?m)^inline\s+const\s+char\*\s+AsciiString::reverseFind\s*\([^\)]*\)\s*const\s*\{.*?\n\}",
+                  "",
+                  atxt,
+                  flags=re.DOTALL,
+              )
+              if atxt != aorig:
+                  asc_h.write_text(atxt)
           PYEOF
 
             EXTRA_FLAGS=""
