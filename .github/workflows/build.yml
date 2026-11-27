@@ -26,7 +26,7 @@ jobs:
       - name: Prepare compatibility headers
         run: |
           set -e
-          mkdir -p build_out/win_compat_inc/Common build_out/win_compat_inc/Lib build_out/curl_cmake
+          mkdir -p build_out/win_compat_inc/Common build_out/win_compat_inc/Lib build_out/win_compat_inc/WWDebug build_out/curl_cmake
           CURL_PREFIX="$(brew --prefix curl)"
           cat > build_out/curl_cmake/CURLConfig.cmake <<EOF
           include_guard(GLOBAL)
@@ -179,6 +179,27 @@ jobs:
           #pragma once
           typedef void* HSMACK;
           SMKEOF
+          cat > build_out/win_compat_inc/WWDebug/wwdebug.h <<'WWDEOF'
+          #pragma once
+          #define WWDEBUG_SAY(...) ((void)0)
+          #define WWDEBUG_ASSERT(...) ((void)0)
+          #define WWDEBUG_WARNING(...) ((void)0)
+          #define WWDEBUG_ERROR(...) ((void)0)
+          #define WWASSERT(exp) ((void)0)
+          class WWDebug {
+          public:
+            static void Print(const char*, ...) {}
+          };
+          WWDEOF
+          cat > build_out/win_compat_inc/WWDebug/wwprofile.h <<'WWPEOF'
+          #pragma once
+          class WWProfileSample {
+          public:
+            WWProfileSample(const char*) {}
+            ~WWProfileSample() {}
+          };
+          #define WWPROFILE(name) WWProfileSample __ww_prof_##__LINE__(name)
+          WWPEOF
           cat > build_out/win_compat_inc/d3d8.h <<'D3DEOF'
           #pragma once
           #include <cstdint>
@@ -460,8 +481,16 @@ jobs:
           else
             echo "Using fallback Lib/BaseType.h from $EXTRA_INC"
           fi
+          WWDEBUG_HEADER="$(find "$ROOT" -iname "wwdebug.h" 2>/dev/null | head -n 1 || true)"
+          WWDEBUG_INC_DIR=""
+          if [ -n "$WWDEBUG_HEADER" ]; then
+            WWDEBUG_INC_DIR="$(dirname "$(dirname "$WWDEBUG_HEADER")")"
+            echo "Found WWDebug/wwdebug.h under include dir: $WWDEBUG_INC_DIR"
+          else
+            echo "Using fallback WWDebug/wwdebug.h from $EXTRA_INC"
+          fi
           EXTRA_TREE_DIRS=""
-          for sub in "Core/GameEngine/Include" "Generals/Code/GameEngine/Include" "Generals/Code/GameEngineDevice/Include" "Generals/Code/Libraries/Include"; do
+          for sub in "Core/GameEngine/Include" "Generals/Code/GameEngine/Include" "Generals/Code/GameEngineDevice/Include" "Generals/Code/Libraries/Include" "Core/Libraries/Source/WWVegas"; do
             FOUND_SUB="$(find "$ROOT" -path "*/$sub" -type d 2>/dev/null | head -n 1 || true)"
             if [ -n "$FOUND_SUB" ]; then
               EXTRA_TREE_DIRS="$EXTRA_TREE_DIRS $FOUND_SUB"
@@ -476,6 +505,7 @@ jobs:
           bittype_inc = "$BITTYPE_INC_DIR"
           stl_inc = "$STLTYPEDEFS_INC_DIR"
           basetype_inc = "$BASETYPE_INC_DIR"
+          wwdebug_inc = "$WWDEBUG_INC_DIR"
           tree_dirs = [p for p in "$EXTRA_TREE_DIRS".split() if p]
           for cm in root.rglob("CMakeLists.txt"):
               txt = cm.read_text(errors="ignore")
@@ -492,8 +522,8 @@ jobs:
                   txt = re.sub(r"find_package\s*\(\s*glm[^\)]*\)", "# glm handled", txt, flags=re.I)
                   txt = re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew|export set)[^\)]*\)", "# glm bypassed", txt, flags=re.I|re.S)
                   txt = h + txt
-              if cm.parent.name in ("GameEngine", "GameEngineDevice"):
-                  combined = [util_inc, bittype_inc, stl_inc, basetype_inc] + tree_dirs
+              if cm.parent.name in ("GameEngine", "GameEngineDevice", "WWLib", "WW3D2"):
+                  combined = [util_inc, bittype_inc, stl_inc, basetype_inc, wwdebug_inc] + tree_dirs
                   prefixes = [p for p in combined if p]
                   if prefixes:
                       joined = " ".join(f'"{p}"' for p in dict.fromkeys(prefixes))
@@ -515,7 +545,7 @@ jobs:
                   print("Patched:", cm)
           PYEOF
           EXTRA_FLAGS=""
-          for d in "$UTILITY_INC_DIR" "$BITTYPE_INC_DIR" "$STLTYPEDEFS_INC_DIR" "$BASETYPE_INC_DIR" $EXTRA_TREE_DIRS; do
+          for d in "$UTILITY_INC_DIR" "$BITTYPE_INC_DIR" "$STLTYPEDEFS_INC_DIR" "$BASETYPE_INC_DIR" "$WWDEBUG_INC_DIR" $EXTRA_TREE_DIRS; do
             if [ -n "$d" ]; then
               EXTRA_FLAGS="$EXTRA_FLAGS -I$d"
             fi
