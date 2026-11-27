@@ -22,7 +22,7 @@ jobs:
 
       - name: Install tools
         run: |
-          brew install xcodegen cmake ninja sdl3 curl
+          brew install xcodegen cmake ninja sdl3 curl glm
 
       - name: Build engine and generate iOS IPA
         run: |
@@ -33,10 +33,10 @@ jobs:
           mkdir -p "$BUILD_DIR" "$IPA_ROOT/Payload"
 
           CURL_PREFIX="$(brew --prefix curl)"
+          GLM_PREFIX="$(brew --prefix glm)"
           CURL_CMAKE_DIR="$BUILD_DIR/fake_curl_cmake"
           mkdir -p "$CURL_CMAKE_DIR"
 
-          # إنشاء ملفات CURLConfig.cmake / curl-config.cmake إن لم تكن موجودة في brew curl
           cat > "$CURL_CMAKE_DIR/CURLConfig.cmake" <<EOF
           include_guard(GLOBAL)
           set(CURL_FOUND TRUE)
@@ -53,11 +53,11 @@ jobs:
           cp "$CURL_CMAKE_DIR/CURLConfig.cmake" "$CURL_CMAKE_DIR/curl-config.cmake"
 
           if [ -f "$ROOT/CMakeLists.txt" ]; then
-            echo "=== Configuring CMake with SDL3 and CURL ==="
+            echo "=== Configuring CMake with SDL3, CURL, and GLM ==="
             cmake -S "$ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
               -DSAGE_USE_SDL3=ON \
-              -DCMAKE_PREFIX_PATH="$CURL_CMAKE_DIR;$CURL_PREFIX;/opt/homebrew" \
+              -DCMAKE_PREFIX_PATH="$CURL_CMAKE_DIR;$GLM_PREFIX;$CURL_PREFIX;/opt/homebrew" \
               -DCURL_DIR="$CURL_CMAKE_DIR" \
               -DCURL_LIBRARY="$CURL_PREFIX/lib/libcurl.dylib" \
               -DCURL_INCLUDE_DIR="$CURL_PREFIX/include"
