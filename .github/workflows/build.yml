@@ -196,10 +196,10 @@ jobs:
               -DCURL_DIR="$CURL_CMAKE_DIR" \
               -DCURL_LIBRARY="$CURL_PREFIX/lib/libcurl.dylib" \
               -DCURL_INCLUDE_DIR="$CURL_PREFIX/include" \
-              -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC" \
-              -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC"
+              -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined" \
+              -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined"
             echo "=== Building CMake targets ==="
-            cmake --build "$BUILD_DIR/cmake" --parallel
+            cmake --build "$BUILD_DIR/cmake" --parallel || (ninja -C "$BUILD_DIR/cmake" -k 1; exit 1)
           fi
           if [ -f "$ROOT/ios/project.yml" ]; then
             echo "=== Generating and building Xcode project ==="
