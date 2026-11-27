@@ -59,6 +59,11 @@ jobs:
           EOF
           cp build_out/curl_cmake/CURLConfig.cmake build_out/curl_cmake/curl-config.cmake
 
+          cat > build_out/ios_compat_inc/Lib/BaseTypeCore.h <<'BTCORE'
+          #pragma once
+          #include "../ios_sage_compat.h"
+          BTCORE
+
           cat > build_out/ios_compat_inc/ios_c_compat.h <<'CCEOF'
           #pragma once
           #include <stdint.h>
