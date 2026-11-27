@@ -344,6 +344,7 @@ jobs:
             CompatAsciiString(std::string&& s) : std::string(std::move(s)) {}
             CompatAsciiString(const char* s) : std::string(s ? s : "") {}
 
+            void validate() const {}
             bool isNotEmpty() const { return !empty(); }
             bool isEmpty() const { return empty(); }
             void clear() { std::string::clear(); }
@@ -437,6 +438,7 @@ jobs:
             CompatUnicodeString(std::wstring&& s) : std::wstring(std::move(s)) {}
             CompatUnicodeString(const wchar_t* s) : std::wstring(s ? s : L"") {}
 
+            void validate() const {}
             bool isNotEmpty() const { return !empty(); }
             bool isEmpty() const { return empty(); }
             void clear() { std::wstring::clear(); }
