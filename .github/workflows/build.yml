@@ -74,6 +74,13 @@ jobs:
           using LPCVOID = const void*;
           using HANDLE = void*;
           using HRESULT = int32_t;
+          typedef struct tagPALETTEENTRY {
+            BYTE peRed;
+            BYTE peGreen;
+            BYTE peBlue;
+            BYTE peFlags;
+          } PALETTEENTRY, *PPALETTEENTRY, *LPPALETTEENTRY;
+          typedef const PALETTEENTRY *LPCPALETTEENTRY;
           typedef union _LARGE_INTEGER {
             struct { DWORD LowPart; LONG HighPart; };
             long long QuadPart;
