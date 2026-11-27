@@ -74,6 +74,9 @@ jobs:
           using LPVOID = void*;
           using LPCVOID = const void*;
           using HANDLE = void*;
+          using HWND = void*;
+          using HMODULE = void*;
+          using HINSTANCE = void*;
           using HDC = void*;
           using HRESULT = int32_t;
           using SIZE_T = size_t;
@@ -137,6 +140,9 @@ jobs:
           #ifndef FAILED
           #define FAILED(hr) (((HRESULT)(hr)) < 0)
           #endif
+          #ifndef SUCCEEDED
+          #define SUCCEEDED(hr) (((HRESULT)(hr)) >= 0)
+          #endif
           WEOF
           fi
           D3D8_SRC="$(find "$ROOT" -name "d3d8.h" 2>/dev/null | head -n 1 || true)"
@@ -177,154 +183,7 @@ jobs:
           } D3DVOLUME_DESC;
           typedef struct _D3DLOCKED_RECT { INT Pitch; void* pBits; } D3DLOCKED_RECT;
           typedef struct _D3DLOCKED_BOX { INT RowPitch; INT SlicePitch; void* pBits; } D3DLOCKED_BOX;
-          typedef enum _D3DFORMAT { D3DFMT_UNKNOWN = 0, D3DFMT_A8R8G8B8 = 21, D3DFMT_X8R8G8B8 = 22, D3DFMT_R5G6B5 = 23, D3DFMT_D24S8 = 75, D3DFMT_FORCE_DWORD = 0x7fffffff } D3DFORMAT;
-          typedef enum _D3DPOOL { D3DPOOL_DEFAULT = 0, D3DPOOL_MANAGED = 1, D3DPOOL_SYSTEMMEM = 2, D3DPOOL_FORCE_DWORD = 0x7fffffff } D3DPOOL;
-          typedef enum _D3DRESOURCETYPE { D3DRTYPE_SURFACE = 1, D3DRTYPE_VOLUME = 2, D3DRTYPE_TEXTURE = 3, D3DRTYPE_VOLUMETEXTURE = 4, D3DRTYPE_CUBETEXTURE = 5, D3DRTYPE_VERTEXBUFFER = 6, D3DRTYPE_INDEXBUFFER = 7, D3DRTYPE_FORCE_DWORD = 0x7fffffff } D3DRESOURCETYPE;
-          struct IDirect3D8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
-          struct IDirect3DDevice8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
-          struct IDirect3DResource8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
-          struct IDirect3DBaseTexture8 {
-            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
-            DWORD SetLOD(DWORD){return 0;} DWORD GetLOD(){return 0;} DWORD GetLevelCount(){return 1;}
-          };
-          struct IDirect3DSurface8 {
-            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
-            HRESULT GetDesc(D3DSURFACE_DESC*){return S_OK;}
-            HRESULT LockRect(D3DLOCKED_RECT*, const RECT*, DWORD){return S_OK;}
-            HRESULT UnlockRect(){return S_OK;}
-          };
-          struct IDirect3DTexture8 : public IDirect3DBaseTexture8 {
-            HRESULT GetLevelDesc(UINT, D3DSURFACE_DESC*){return S_OK;}
-            HRESULT GetSurfaceLevel(UINT, IDirect3DSurface8** ppSurf){if(ppSurf)*ppSurf=nullptr;return S_OK;}
-            HRESULT LockRect(UINT, D3DLOCKED_RECT*, const RECT*, DWORD){return S_OK;}
-            HRESULT UnlockRect(UINT){return S_OK;}
-          };
-          struct IDirect3DCubeTexture8 : public IDirect3DBaseTexture8 {
-            HRESULT GetLevelDesc(UINT, D3DSURFACE_DESC*){return S_OK;}
-            HRESULT GetCubeMapSurface(DWORD, UINT, IDirect3DSurface8** ppSurf){if(ppSurf)*ppSurf=nullptr;return S_OK;}
-            HRESULT LockRect(DWORD, UINT, D3DLOCKED_RECT*, const RECT*, DWORD){return S_OK;}
-            HRESULT UnlockRect(DWORD, UINT){return S_OK;}
-          };
-          struct IDirect3DVolume8 {
-            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
-            HRESULT GetDesc(D3DVOLUME_DESC*){return S_OK;}
-            HRESULT LockBox(D3DLOCKED_BOX*, const void*, DWORD){return S_OK;}
-            HRESULT UnlockBox(){return S_OK;}
-          };
-          struct IDirect3DVolumeTexture8 : public IDirect3DBaseTexture8 {
-            HRESULT GetLevelDesc(UINT, D3DVOLUME_DESC*){return S_OK;}
-            HRESULT GetVolumeLevel(UINT, IDirect3DVolume8** ppVol){if(ppVol)*ppVol=nullptr;return S_OK;}
-            HRESULT LockBox(UINT, D3DLOCKED_BOX*, const void*, DWORD){return S_OK;}
-            HRESULT UnlockBox(UINT){return S_OK;}
-          };
-          struct IDirect3DVertexBuffer8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
-          struct IDirect3DIndexBuffer8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
-          struct IDirect3DSwapChain8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
-          typedef struct IDirect3D8 *LPDIRECT3D8, *PDIRECT3D8;
-          typedef struct IDirect3DDevice8 *LPDIRECT3DDEVICE8, *PDIRECT3DDEVICE8;
-          typedef struct IDirect3DResource8 *LPDIRECT3DRESOURCE8, *PDIRECT3DRESOURCE8;
-          typedef struct IDirect3DBaseTexture8 *LPDIRECT3DBASETEXTURE8, *PDIRECT3DBASETEXTURE8;
-          typedef struct IDirect3DTexture8 *LPDIRECT3DTEXTURE8, *PDIRECT3DTEXTURE8;
-          typedef struct IDirect3DCubeTexture8 *LPDIRECT3DCUBETEXTURE8, *PDIRECT3DCUBETEXTURE8;
-          typedef struct IDirect3DVolumeTexture8 *LPDIRECT3DVOLUMETEXTURE8, *PDIRECT3DVOLUMETEXTURE8;
-          typedef struct IDirect3DVertexBuffer8 *LPDIRECT3DVERTEXBUFFER8, *PDIRECT3DVERTEXBUFFER8;
-          typedef struct IDirect3DIndexBuffer8 *LPDIRECT3DINDEXBUFFER8, *PDIRECT3DINDEXBUFFER8;
-          typedef struct IDirect3DSurface8 *LPDIRECT3DSURFACE8, *PDIRECT3DSURFACE8;
-          typedef struct IDirect3DVolume8 *LPDIRECT3DVOLUME8, *PDIRECT3DVOLUME8;
-          typedef struct IDirect3DSwapChain8 *LPDIRECT3DSWAPCHAIN8, *PDIRECT3DSWAPCHAIN8;
-          #define D3D_OK 0L
-          #define D3D_SDK_VERSION 220
-          #define D3DFVF_RESERVED0 0x001U
-          #define D3DFVF_POSITION_MASK 0x00EU
-          #define D3DFVF_XYZ 0x002U
-          #define D3DFVF_XYZRHW 0x004U
-          #define D3DFVF_XYZB1 0x006U
-          #define D3DFVF_XYZB2 0x008U
-          #define D3DFVF_XYZB3 0x00AU
-          #define D3DFVF_XYZB4 0x00CU
-          #define D3DFVF_XYZB5 0x00EU
-          #define D3DFVF_NORMAL 0x010U
-          #define D3DFVF_PSIZE 0x020U
-          #define D3DFVF_DIFFUSE 0x040U
-          #define D3DFVF_SPECULAR 0x080U
-          #define D3DFVF_TEXCOUNT_MASK 0xf00U
-          #define D3DFVF_TEXCOUNT_SHIFT 8
-          #define D3DFVF_TEX0 0x000U
-          #define D3DFVF_TEX1 0x100U
-          #define D3DFVF_TEX2 0x200U
-          #define D3DFVF_TEX3 0x300U
-          #define D3DFVF_TEX4 0x400U
-          #define D3DFVF_TEX5 0x500U
-          #define D3DFVF_TEX6 0x600U
-          #define D3DFVF_TEX7 0x700U
-          #define D3DFVF_TEX8 0x800U
-          #define D3DFVF_LASTBETA_UBYTE4 0x1000U
-          #define D3DERR_WRONGTEXTUREFORMAT ((HRESULT)0x88760866L)
-          #define D3DERR_UNSUPPORTEDCOLOROPERATION ((HRESULT)0x88760867L)
-          #define D3DERR_UNSUPPORTEDCOLORARG ((HRESULT)0x88760868L)
-          #define D3DERR_UNSUPPORTEDALPHAOPERATION ((HRESULT)0x88760869L)
-          #define D3DERR_UNSUPPORTEDALPHAARG ((HRESULT)0x8876086AL)
-          #define D3DERR_TOOMANYOPERATIONS ((HRESULT)0x8876086BL)
-          #define D3DERR_CONFLICTINGTEXTUREFILTER ((HRESULT)0x8876086CL)
-          #define D3DERR_UNSUPPORTEDFACTORVALUE ((HRESULT)0x8876086DL)
-          #define D3DERR_CONFLICTINGRENDERSTATE ((HRESULT)0x8876086EL)
-          #define D3DERR_UNSUPPORTEDTEXTUREFILTER ((HRESULT)0x8876086FL)
-          #define D3DERR_CONFLICTINGTEXTUREPALETTE ((HRESULT)0x88760870L)
-          #define D3DERR_NOTFOUND ((HRESULT)0x88760873L)
-          #define D3DERR_MOREDATA ((HRESULT)0x88760874L)
-          #define D3DERR_DEVICELOST ((HRESULT)0x88760876L)
-          #define D3DERR_DEVICENOTRESET ((HRESULT)0x88760877L)
-          #define D3DERR_NOTAVAILABLE ((HRESULT)0x88760878L)
-          #define D3DERR_OUTOFVIDEOMEMORY ((HRESULT)0x8876087CL)
-          #define D3DERR_INVALIDDEVICE ((HRESULT)0x8876087EL)
-          #define D3DERR_INVALIDCALL ((HRESULT)0x8876087FL)
-          #define D3DERR_DRIVERINVALIDCALL ((HRESULT)0x88760880L)
-          #define D3DCOLOR_ARGB(a,r,g,b) ((D3DCOLOR)(((((a)&0xffu)<<24)|(((r)&0xffu)<<16)|(((g)&0xffu)<<8)|((b)&0xffu))))
-          #define D3DCOLOR_RGBA(r,g,b,a) D3DCOLOR_ARGB(a,r,g,b)
-          #define D3DCOLOR_XRGB(r,g,b) D3DCOLOR_ARGB(0xffu,r,g,b)
-          D3DEOF
-          fi
-          COMPAT_CMAKE="$ROOT/GeneralsMD/Code/CompatLib/CMakeLists.txt"
-          if [ -f "$COMPAT_CMAKE" ]; then
-            echo "Patching CompatLib"
-            cat << 'PYEOF' > "$BUILD_DIR/patch.py"
-          import re, sys
-          from pathlib import Path
-          p = Path(sys.argv[1])
-          inc = sys.argv[2]
-          winc = sys.argv[3]
-          s = p.read_text(errors="ignore")
-          lines = [
-              'set(GLM_FOUND TRUE CACHE BOOL "" FORCE)',
-              'set(GLM_INCLUDE_DIRS "' + inc + '" CACHE PATH "" FORCE)',
-              'include_directories("' + inc + '" "' + winc + '")',
-              'if(NOT TARGET glm::glm)',
-              'add_library(glm::glm INTERFACE IMPORTED)',
-              'set_target_properties(glm::glm PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "' + inc + '")',
-              'endif()',
-              'if(NOT TARGET glm::glm-header-only)',
-              'add_library(glm::glm-header-only INTERFACE IMPORTED)',
-              'set_target_properties(glm::glm-header-only PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "' + inc + '")',
-              'endif()',
-          ]
-          h = "\n".join(lines) + "\n"
-          s = re.sub(r"find_package\s*\(\s*glm[^\)]*\)", "# glm handled", s, flags=re.I)
-          s = re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew|export set)[^\)]*\)", "# glm bypassed", s, flags=re.I|re.S)
-          p.write_text(h + s)
-          PYEOF
-            python3 "$BUILD_DIR/patch.py" "$COMPAT_CMAKE" "$GLM_PREFIX/include" "$EXTRA_INC"
-          fi
-          if [ -f "$ROOT/CMakeLists.txt" ]; then
-            echo "=== Configuring CMake ==="
-            cmake -S "$ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DSAGE_USE_SDL3=ON \
-              -DCMAKE_PREFIX_PATH="$CURL_CMAKE_DIR;$GLM_PREFIX;$CURL_PREFIX;/opt/homebrew" \
-              -DCURL_DIR="$CURL_CMAKE_DIR" \
-              -DCURL_LIBRARY="$CURL_PREFIX/lib/libcurl.dylib" \
-              -DCURL_INCLUDE_DIR="$CURL_PREFIX/include" \
-              -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined -ferror-limit=0" \
-              -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined -ferror-limit=0"
-            echo "=== Building CMake targets ==="
-            ninja -C "$BUILD_DIR/cmake" -k 1
-          fi
+          typedef struct _D3DVERTEXBUFFER_DESC {
+            DWORD Format; DWORD Type; DWORD Usage; DWORD Pool; UINT Size; DWORD FVF;
+          } D3DVERTEXBUFFER_DESC;
+          
