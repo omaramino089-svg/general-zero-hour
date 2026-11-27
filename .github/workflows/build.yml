@@ -35,7 +35,8 @@ jobs:
           CURL_PREFIX="$(brew --prefix curl)"
           GLM_PREFIX="$(brew --prefix glm)"
           FAKE_CMAKE_DIR="$BUILD_DIR/fake_cmake"
-          mkdir -p "$FAKE_CMAKE_DIR"
+          ALT_CMAKE_DIR="$BUILD_DIR/alt_cmake"
+          mkdir -p "$FAKE_CMAKE_DIR" "$ALT_CMAKE_DIR"
 
           cat > "$FAKE_CMAKE_DIR/CURLConfig.cmake" <<EOF
           include_guard(GLOBAL)
@@ -50,7 +51,7 @@ jobs:
             )
           endif()
           EOF
-          cp "$FAKE_CMAKE_DIR/CURLConfig.cmake" "$FAKE_CMAKE_DIR/curl-config.cmake"
+          cp "$FAKE_CMAKE_DIR/CURLConfig.cmake" "$ALT_CMAKE_DIR/curl-config.cmake"
 
           cat > "$FAKE_CMAKE_DIR/FindGLM.cmake" <<EOF
           set(GLM_FOUND TRUE)
@@ -63,9 +64,9 @@ jobs:
             )
           endif()
           EOF
-          cp "$FAKE_CMAKE_DIR/FindGLM.cmake" "$FAKE_CMAKE_DIR/Findglm.cmake"
-          cp "$FAKE_CMAKE_DIR/FindGLM.cmake" "$FAKE_CMAKE_DIR/GLMConfig.cmake"
-          cp "$FAKE_CMAKE_DIR/FindGLM.cmake" "$FAKE_CMAKE_DIR/glmConfig.cmake"
+          cp "$FAKE_CMAKE_DIR/FindGLM.cmake" "$ALT_CMAKE_DIR/Findglm.cmake"
+          cp "$FAKE_CMAKE_DIR/FindGLM.cmake" "$ALT_CMAKE_DIR/GLMConfig.cmake"
+          cp "$FAKE_CMAKE_DIR/FindGLM.cmake" "$ALT_CMAKE_DIR/glmConfig.cmake"
 
           if [ -f "$ROOT/GeneralsMD/Code/CompatLib/CMakeLists.txt" ]; then
             echo "=== CompatLib/CMakeLists.txt ==="
@@ -77,11 +78,11 @@ jobs:
             cmake -S "$ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
               -DSAGE_USE_SDL3=ON \
-              -DCMAKE_MODULE_PATH="$FAKE_CMAKE_DIR" \
-              -DCMAKE_PREFIX_PATH="$FAKE_CMAKE_DIR;$GLM_PREFIX;$CURL_PREFIX;/opt/homebrew" \
+              -DCMAKE_MODULE_PATH="$FAKE_CMAKE_DIR;$ALT_CMAKE_DIR" \
+              -DCMAKE_PREFIX_PATH="$FAKE_CMAKE_DIR;$ALT_CMAKE_DIR;$GLM_PREFIX;$CURL_PREFIX;/opt/homebrew" \
               -DCURL_DIR="$FAKE_CMAKE_DIR" \
               -DGLM_DIR="$FAKE_CMAKE_DIR" \
-              -Dglm_DIR="$FAKE_CMAKE_DIR" \
+              -Dglm_DIR="$ALT_CMAKE_DIR" \
               -DGLM_FOUND=ON \
               -Dglm_FOUND=ON \
               -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include" \
