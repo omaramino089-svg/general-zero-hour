@@ -334,5 +334,3 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: GeneralsXZH-iOS-IPA
-          path: GeneralsXZH.ipa
-          if-no-files-found: error
