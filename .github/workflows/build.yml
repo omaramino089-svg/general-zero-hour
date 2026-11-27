@@ -13,7 +13,6 @@ jobs:
         run: |
           mkdir -p src_combined
           for z in *.zip; do
-            echo "Extracting $z..."
             unzip -q -o "$z" -d src_combined
           done
       - name: Install tools
@@ -46,79 +45,34 @@ jobs:
           cp "$CURL_CMAKE_DIR/CURLConfig.cmake" "$CURL_CMAKE_DIR/curl-config.cmake"
           EXTRA_INC="$BUILD_DIR/win_compat_inc"
           mkdir -p "$EXTRA_INC"
-          WIN_BASE_HDR="$(find "$ROOT" -name "windows_base.h" 2>/dev/null | head -n 1 || true)"
-          if [ -n "$WIN_BASE_HDR" ]; then
-            cp -f "$WIN_BASE_HDR" "$EXTRA_INC/windows_base.h"
-          else
-            cat > "$EXTRA_INC/windows_base.h" <<'WEOF'
+          cat > "$EXTRA_INC/windows_base.h" <<'WEOF'
           #pragma once
           #include <cstdint>
           #include <cstring>
-          using DWORD = uint32_t;
-          using WORD = uint16_t;
-          using BYTE = uint8_t;
-          using BOOL = int32_t;
-          using WINBOOL = int32_t;
-          using LONG = int32_t;
-          using ULONG = uint32_t;
-          using LONGLONG = int64_t;
-          using ULONGLONG = uint64_t;
-          using UINT = uint32_t;
-          using INT = int32_t;
-          using FLOAT = float;
-          using WCHAR = wchar_t;
-          using LPSTR = char*;
-          using LPCSTR = const char*;
-          using LPWSTR = wchar_t*;
-          using LPCWSTR = const wchar_t*;
-          using LPVOID = void*;
-          using LPCVOID = const void*;
-          using HANDLE = void*;
-          using HWND = void*;
-          using HMODULE = void*;
-          using HINSTANCE = void*;
-          using HDC = void*;
-          using HRESULT = int32_t;
+          using DWORD = uint32_t; using WORD = uint16_t; using BYTE = uint8_t;
+          using BOOL = int32_t; using WINBOOL = int32_t; using LONG = int32_t;
+          using ULONG = uint32_t; using LONGLONG = int64_t; using ULONGLONG = uint64_t;
+          using UINT = uint32_t; using INT = int32_t; using FLOAT = float;
+          using WCHAR = wchar_t; using LPSTR = char*; using LPCSTR = const char*;
+          using LPWSTR = wchar_t*; using LPCWSTR = const wchar_t*;
+          using LPVOID = void*; using LPCVOID = const void*;
+          using HANDLE = void*; using HWND = void*; using HMODULE = void*;
+          using HINSTANCE = void*; using HDC = void*; using HRESULT = int32_t;
           using SIZE_T = size_t;
-          struct PALETTEENTRY {
-            BYTE peRed;
-            BYTE peGreen;
-            BYTE peBlue;
-            BYTE peFlags;
-          };
+          struct PALETTEENTRY { BYTE peRed, peGreen, peBlue, peFlags; };
           typedef PALETTEENTRY *PPALETTEENTRY, *LPPALETTEENTRY;
           typedef const PALETTEENTRY *LPCPALETTEENTRY;
-          struct RECT {
-            LONG left;
-            LONG top;
-            LONG right;
-            LONG bottom;
-          };
+          struct RECT { LONG left, top, right, bottom; };
           typedef RECT *PRECT, *LPRECT;
           typedef const RECT *LPCRECT;
-          struct POINT {
-            LONG x;
-            LONG y;
-          };
+          struct POINT { LONG x, y; };
           typedef POINT *PPOINT, *LPPOINT;
           typedef struct _MEMORYSTATUS {
-            DWORD dwLength;
-            DWORD dwMemoryLoad;
-            SIZE_T dwTotalPhys;
-            SIZE_T dwAvailPhys;
-            SIZE_T dwTotalPageFile;
-            SIZE_T dwAvailPageFile;
-            SIZE_T dwTotalVirtual;
-            SIZE_T dwAvailVirtual;
+            DWORD dwLength, dwMemoryLoad;
+            SIZE_T dwTotalPhys, dwAvailPhys, dwTotalPageFile, dwAvailPageFile, dwTotalVirtual, dwAvailVirtual;
           } MEMORYSTATUS, *LPMEMORYSTATUS;
-          typedef union _LARGE_INTEGER {
-            struct { DWORD LowPart; LONG HighPart; };
-            long long QuadPart;
-          } LARGE_INTEGER;
-          typedef union _ULARGE_INTEGER {
-            struct { DWORD LowPart; DWORD HighPart; };
-            unsigned long long QuadPart;
-          } ULARGE_INTEGER;
+          typedef union _LARGE_INTEGER { struct { DWORD LowPart; LONG HighPart; }; long long QuadPart; } LARGE_INTEGER;
+          typedef union _ULARGE_INTEGER { struct { DWORD LowPart; DWORD HighPart; }; unsigned long long QuadPart; } ULARGE_INTEGER;
           #ifndef TRUE
           #define TRUE 1
           #endif
@@ -144,12 +98,7 @@ jobs:
           #define SUCCEEDED(hr) (((HRESULT)(hr)) >= 0)
           #endif
           WEOF
-          fi
-          D3D8_SRC="$(find "$ROOT" -name "d3d8.h" 2>/dev/null | head -n 1 || true)"
-          if [ -n "$D3D8_SRC" ]; then
-            cp -f "$D3D8_SRC" "$EXTRA_INC/d3d8.h"
-          else
-            cat > "$EXTRA_INC/d3d8.h" <<'D3DEOF'
+          cat > "$EXTRA_INC/d3d8.h" <<'D3DEOF'
           #pragma once
           #include <cstdint>
           #include "windows_base.h"
@@ -157,12 +106,7 @@ jobs:
           typedef struct _D3DVECTOR { float x, y, z; } D3DVECTOR;
           typedef struct _D3DMATRIX {
             union {
-              struct {
-                float _11, _12, _13, _14;
-                float _21, _22, _23, _24;
-                float _31, _32, _33, _34;
-                float _41, _42, _43, _44;
-              };
+              struct { float _11, _12, _13, _14, _21, _22, _23, _24, _31, _32, _33, _34, _41, _42, _43, _44; };
               float m[4][4];
             };
           } D3DMATRIX;
@@ -173,70 +117,40 @@ jobs:
             float Range, Falloff, Attenuation0, Attenuation1, Attenuation2, Theta, Phi;
           } D3DLIGHT8;
           typedef struct _D3DMATERIAL8 { D3DCOLORVALUE Diffuse, Ambient, Specular, Emissive; float Power; } D3DMATERIAL8;
-          typedef struct _D3DSURFACE_DESC {
-            DWORD Format; DWORD Type; DWORD Usage; DWORD Pool; UINT Size;
-            DWORD MultiSampleType; UINT Width; UINT Height;
-          } D3DSURFACE_DESC;
-          typedef struct _D3DVOLUME_DESC {
-            DWORD Format; DWORD Type; DWORD Usage; DWORD Pool;
-            UINT Width; UINT Height; UINT Depth;
-          } D3DVOLUME_DESC;
+          typedef struct _D3DSURFACE_DESC { DWORD Format, Type, Usage, Pool; UINT Size; DWORD MultiSampleType; UINT Width, Height; } D3DSURFACE_DESC;
+          typedef struct _D3DVOLUME_DESC { DWORD Format, Type, Usage, Pool; UINT Width, Height, Depth; } D3DVOLUME_DESC;
           typedef struct _D3DLOCKED_RECT { INT Pitch; void* pBits; } D3DLOCKED_RECT;
-          typedef struct _D3DLOCKED_BOX { INT RowPitch; INT SlicePitch; void* pBits; } D3DLOCKED_BOX;
-          typedef struct _D3DVERTEXBUFFER_DESC {
-            DWORD Format; DWORD Type; DWORD Usage; DWORD Pool; UINT Size; DWORD FVF;
-          } D3DVERTEXBUFFER_DESC;
-          typedef struct _D3DINDEXBUFFER_DESC {
-            DWORD Format; DWORD Type; DWORD Usage; DWORD Pool; UINT Size;
-          } D3DINDEXBUFFER_DESC;
+          typedef struct _D3DLOCKED_BOX { INT RowPitch, SlicePitch; void* pBits; } D3DLOCKED_BOX;
+          typedef struct _D3DVERTEXBUFFER_DESC { DWORD Format, Type, Usage, Pool; UINT Size, FVF; } D3DVERTEXBUFFER_DESC;
+          typedef struct _D3DINDEXBUFFER_DESC { DWORD Format, Type, Usage, Pool; UINT Size; } D3DINDEXBUFFER_DESC;
           typedef struct _D3DPRESENT_PARAMETERS_ {
-            UINT BackBufferWidth; UINT BackBufferHeight; DWORD BackBufferFormat;
-            UINT BackBufferCount; DWORD MultiSampleType; DWORD SwapEffect;
-            HWND hDeviceWindow; BOOL Windowed; BOOL EnableAutoDepthStencil;
-            DWORD AutoDepthStencilFormat; DWORD Flags; UINT FullScreen_RefreshRateInHz;
-            UINT FullScreen_PresentationInterval;
+            UINT BackBufferWidth, BackBufferHeight; DWORD BackBufferFormat; UINT BackBufferCount;
+            DWORD MultiSampleType, SwapEffect; HWND hDeviceWindow; BOOL Windowed, EnableAutoDepthStencil;
+            DWORD AutoDepthStencilFormat, Flags; UINT FullScreen_RefreshRateInHz, FullScreen_PresentationInterval;
           } D3DPRESENT_PARAMETERS;
-          typedef struct _D3DDISPLAYMODE {
-            UINT Width; UINT Height; UINT RefreshRate; DWORD Format;
-          } D3DDISPLAYMODE;
+          typedef struct _D3DDISPLAYMODE { UINT Width, Height, RefreshRate; DWORD Format; } D3DDISPLAYMODE;
           typedef enum _D3DFORMAT {
-            D3DFMT_UNKNOWN = 0, D3DFMT_A8R8G8B8 = 21, D3DFMT_X8R8G8B8 = 22,
-            D3DFMT_R5G6B5 = 23, D3DFMT_A1R5G5B5 = 25, D3DFMT_A4R4G4B4 = 26,
-            D3DFMT_R8G8B8 = 20, D3DFMT_A8 = 28, D3DFMT_L8 = 50, D3DFMT_A8L8 = 51,
-            D3DFMT_DXT1 = 0x31545844, D3DFMT_DXT2 = 0x32545844, D3DFMT_DXT3 = 0x33545844,
-            D3DFMT_DXT4 = 0x34545844, D3DFMT_DXT5 = 0x35545844,
-            D3DFMT_D16 = 80, D3DFMT_D24S8 = 75, D3DFMT_D32 = 71,
-            D3DFMT_FORCE_DWORD = 0x7fffffff
+            D3DFMT_UNKNOWN = 0, D3DFMT_A8R8G8B8 = 21, D3DFMT_X8R8G8B8 = 22, D3DFMT_R5G6B5 = 23,
+            D3DFMT_A1R5G5B5 = 25, D3DFMT_A4R4G4B4 = 26, D3DFMT_R8G8B8 = 20, D3DFMT_A8 = 28,
+            D3DFMT_L8 = 50, D3DFMT_A8L8 = 51, D3DFMT_DXT1 = 0x31545844, D3DFMT_DXT2 = 0x32545844,
+            D3DFMT_DXT3 = 0x33545844, D3DFMT_DXT4 = 0x34545844, D3DFMT_DXT5 = 0x35545844,
+            D3DFMT_D16 = 80, D3DFMT_D24S8 = 75, D3DFMT_D32 = 71, D3DFMT_FORCE_DWORD = 0x7fffffff
           } D3DFORMAT;
-          typedef enum _D3DPOOL {
-            D3DPOOL_DEFAULT = 0, D3DPOOL_MANAGED = 1, D3DPOOL_SYSTEMMEM = 2,
-            D3DPOOL_SCRATCH = 3, D3DPOOL_FORCE_DWORD = 0x7fffffff
-          } D3DPOOL;
-          typedef enum _D3DRESOURCETYPE {
-            D3DRTYPE_SURFACE = 1, D3DRTYPE_VOLUME = 2, D3DRTYPE_TEXTURE = 3,
-            D3DRTYPE_VOLUMETEXTURE = 4, D3DRTYPE_CUBETEXTURE = 5,
-            D3DRTYPE_VERTEXBUFFER = 6, D3DRTYPE_INDEXBUFFER = 7,
-            D3DRTYPE_FORCE_DWORD = 0x7fffffff
-          } D3DRESOURCETYPE;
-          typedef enum _D3DTRANSFORMSTATETYPE {
-            D3DTS_VIEW = 2, D3DTS_PROJECTION = 3, D3DTS_WORLD = 256,
-            D3DTS_TEXTURE0 = 16, D3DTS_FORCE_DWORD = 0x7fffffff
-          } D3DTRANSFORMSTATETYPE;
+          typedef enum _D3DPOOL { D3DPOOL_DEFAULT = 0, D3DPOOL_MANAGED = 1, D3DPOOL_SYSTEMMEM = 2, D3DPOOL_SCRATCH = 3, D3DPOOL_FORCE_DWORD = 0x7fffffff } D3DPOOL;
+          typedef enum _D3DRESOURCETYPE { D3DRTYPE_SURFACE = 1, D3DRTYPE_VOLUME = 2, D3DRTYPE_TEXTURE = 3, D3DRTYPE_VOLUMETEXTURE = 4, D3DRTYPE_CUBETEXTURE = 5, D3DRTYPE_VERTEXBUFFER = 6, D3DRTYPE_INDEXBUFFER = 7, D3DRTYPE_FORCE_DWORD = 0x7fffffff } D3DRESOURCETYPE;
+          typedef enum _D3DTRANSFORMSTATETYPE { D3DTS_VIEW = 2, D3DTS_PROJECTION = 3, D3DTS_WORLD = 256, D3DTS_TEXTURE0 = 16, D3DTS_FORCE_DWORD = 0x7fffffff } D3DTRANSFORMSTATETYPE;
           typedef enum _D3DRENDERSTATETYPE {
-            D3DRS_ZENABLE = 7, D3DRS_FILLMODE = 8, D3DRS_SHADEMODE = 9,
-            D3DRS_ZWRITEENABLE = 14, D3DRS_ALPHATESTENABLE = 15, D3DRS_SRCBLEND = 19,
-            D3DRS_DESTBLEND = 20, D3DRS_CULLMODE = 22, D3DRS_ZFUNC = 23,
-            D3DRS_ALPHAREF = 24, D3DRS_ALPHAFUNC = 25, D3DRS_DITHERENABLE = 26,
-            D3DRS_ALPHABLENDENABLE = 27, D3DRS_FOGENABLE = 28, D3DRS_FOGCOLOR = 34,
-            D3DRS_FOGSTART = 36, D3DRS_FOGEND = 37, D3DRS_FOGDENSITY = 38,
-            D3DRS_LIGHTING = 137, D3DRS_AMBIENT = 139, D3DRS_TEXTUREFACTOR = 147,
-            D3DRS_FORCE_DWORD = 0x7fffffff
+            D3DRS_ZENABLE = 7, D3DRS_FILLMODE = 8, D3DRS_SHADEMODE = 9, D3DRS_ZWRITEENABLE = 14,
+            D3DRS_ALPHATESTENABLE = 15, D3DRS_SRCBLEND = 19, D3DRS_DESTBLEND = 20, D3DRS_CULLMODE = 22,
+            D3DRS_ZFUNC = 23, D3DRS_ALPHAREF = 24, D3DRS_ALPHAFUNC = 25, D3DRS_DITHERENABLE = 26,
+            D3DRS_ALPHABLENDENABLE = 27, D3DRS_FOGENABLE = 28, D3DRS_FOGCOLOR = 34, D3DRS_FOGSTART = 36,
+            D3DRS_FOGEND = 37, D3DRS_FOGDENSITY = 38, D3DRS_LIGHTING = 137, D3DRS_AMBIENT = 139,
+            D3DRS_TEXTUREFACTOR = 147, D3DRS_FORCE_DWORD = 0x7fffffff
           } D3DRENDERSTATETYPE;
           typedef enum _D3DTEXTURESTAGESTATETYPE {
-            D3DTSS_COLOROP = 1, D3DTSS_COLORARG1 = 2, D3DTSS_COLORARG2 = 3,
-            D3DTSS_ALPHAOP = 4, D3DTSS_ALPHAARG1 = 5, D3DTSS_ALPHAARG2 = 6,
-            D3DTSS_TEXCOORDINDEX = 11, D3DTSS_ADDRESSU = 13, D3DTSS_ADDRESSV = 14,
-            D3DTSS_MAGFILTER = 16, D3DTSS_MINFILTER = 17, D3DTSS_MIPFILTER = 18,
+            D3DTSS_COLOROP = 1, D3DTSS_COLORARG1 = 2, D3DTSS_COLORARG2 = 3, D3DTSS_ALPHAOP = 4,
+            D3DTSS_ALPHAARG1 = 5, D3DTSS_ALPHAARG2 = 6, D3DTSS_TEXCOORDINDEX = 11, D3DTSS_ADDRESSU = 13,
+            D3DTSS_ADDRESSV = 14, D3DTSS_MAGFILTER = 16, D3DTSS_MINFILTER = 17, D3DTSS_MIPFILTER = 18,
             D3DTSS_FORCE_DWORD = 0x7fffffff
           } D3DTEXTURESTAGESTATETYPE;
           struct IDirect3D8 {
@@ -260,16 +174,14 @@ jobs:
             HRESULT SetTexture(DWORD, void*){return S_OK;}
             HRESULT SetViewport(const D3DVIEWPORT8*){return S_OK;}
             HRESULT GetViewport(D3DVIEWPORT8* pVp){if(pVp)*pVp={};return S_OK;}
-            HRESULT BeginScene(){return S_OK;}
-            HRESULT EndScene(){return S_OK;}
+            HRESULT BeginScene(){return S_OK;} HRESULT EndScene(){return S_OK;}
             HRESULT Present(const void*, const void*, HWND, const void*){return S_OK;}
             HRESULT CreateTexture(UINT, UINT, UINT, DWORD, DWORD, DWORD, void** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
             HRESULT CreateCubeTexture(UINT, UINT, DWORD, DWORD, DWORD, void** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
             HRESULT CreateVolumeTexture(UINT, UINT, UINT, UINT, DWORD, DWORD, DWORD, void** ppTex){if(ppTex)*ppTex=nullptr;return S_OK;}
             HRESULT CreateVertexBuffer(UINT, DWORD, DWORD, DWORD, void** ppVb){if(ppVb)*ppVb=nullptr;return S_OK;}
             HRESULT CreateIndexBuffer(UINT, DWORD, DWORD, DWORD, void** ppIb){if(ppIb)*ppIb=nullptr;return S_OK;}
-            HRESULT SetStreamSource(UINT, void*, UINT){return S_OK;}
-            HRESULT SetIndices(void*, UINT){return S_OK;}
+            HRESULT SetStreamSource(UINT, void*, UINT){return S_OK;} HRESULT SetIndices(void*, UINT){return S_OK;}
             HRESULT SetVertexShader(DWORD){return S_OK;}
             HRESULT DrawPrimitive(DWORD, UINT, UINT){return S_OK;}
             HRESULT DrawIndexedPrimitive(DWORD, UINT, UINT, UINT, UINT){return S_OK;}
@@ -279,8 +191,8 @@ jobs:
           struct IDirect3DResource8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
           struct IDirect3DBaseTexture8 {
             ULONG AddRef(){return 1;} ULONG Release(){return 0;}
-            DWORD GetType(){return D3DRTYPE_TEXTURE;}
-            DWORD SetLOD(DWORD){return 0;} DWORD GetLOD(){return 0;} DWORD GetLevelCount(){return 1;}
+            DWORD GetType(){return D3DRTYPE_TEXTURE;} DWORD SetLOD(DWORD){return 0;}
+            DWORD GetLOD(){return 0;} DWORD GetLevelCount(){return 1;}
           };
           struct IDirect3DSurface8 {
             ULONG AddRef(){return 1;} ULONG Release(){return 0;}
@@ -289,3 +201,191 @@ jobs:
             HRESULT UnlockRect(){return S_OK;}
           };
           struct IDirect3DTexture8 : public IDirect3DBaseTexture8 {
+            HRESULT GetLevelDesc(UINT, D3DSURFACE_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
+            HRESULT GetSurfaceLevel(UINT, IDirect3DSurface8** ppSurf){if(ppSurf)*ppSurf=nullptr;return S_OK;}
+            HRESULT LockRect(UINT, D3DLOCKED_RECT* pLocked, const RECT*, DWORD){if(pLocked)*pLocked={};return S_OK;}
+            HRESULT UnlockRect(UINT){return S_OK;}
+          };
+          struct IDirect3DCubeTexture8 : public IDirect3DBaseTexture8 {
+            HRESULT GetLevelDesc(UINT, D3DSURFACE_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
+            HRESULT GetCubeMapSurface(DWORD, UINT, IDirect3DSurface8** ppSurf){if(ppSurf)*ppSurf=nullptr;return S_OK;}
+            HRESULT LockRect(DWORD, UINT, D3DLOCKED_RECT* pLocked, const RECT*, DWORD){if(pLocked)*pLocked={};return S_OK;}
+            HRESULT UnlockRect(DWORD, UINT){return S_OK;}
+          };
+          struct IDirect3DVolume8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            HRESULT GetDesc(D3DVOLUME_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
+            HRESULT LockBox(D3DLOCKED_BOX* pLocked, const void*, DWORD){if(pLocked)*pLocked={};return S_OK;}
+            HRESULT UnlockBox(){return S_OK;}
+          };
+          struct IDirect3DVolumeTexture8 : public IDirect3DBaseTexture8 {
+            HRESULT GetLevelDesc(UINT, D3DVOLUME_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
+            HRESULT GetVolumeLevel(UINT, IDirect3DVolume8** ppVol){if(ppVol)*ppVol=nullptr;return S_OK;}
+            HRESULT LockBox(UINT, D3DLOCKED_BOX* pLocked, const void*, DWORD){if(pLocked)*pLocked={};return S_OK;}
+            HRESULT UnlockBox(UINT){return S_OK;}
+          };
+          struct IDirect3DVertexBuffer8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            HRESULT GetDesc(D3DVERTEXBUFFER_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
+            HRESULT Lock(UINT, UINT, BYTE**, DWORD){return S_OK;} HRESULT Unlock(){return S_OK;}
+          };
+          struct IDirect3DIndexBuffer8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            HRESULT GetDesc(D3DINDEXBUFFER_DESC* pDesc){if(pDesc)*pDesc={};return S_OK;}
+            HRESULT Lock(UINT, UINT, BYTE**, DWORD){return S_OK;} HRESULT Unlock(){return S_OK;}
+          };
+          struct IDirect3DSwapChain8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
+          typedef struct IDirect3D8 *LPDIRECT3D8, *PDIRECT3D8;
+          typedef struct IDirect3DDevice8 *LPDIRECT3DDEVICE8, *PDIRECT3DDEVICE8;
+          typedef struct IDirect3DResource8 *LPDIRECT3DRESOURCE8, *PDIRECT3DRESOURCE8;
+          typedef struct IDirect3DBaseTexture8 *LPDIRECT3DBASETEXTURE8, *PDIRECT3DBASETEXTURE8;
+          typedef struct IDirect3DTexture8 *LPDIRECT3DTEXTURE8, *PDIRECT3DTEXTURE8;
+          typedef struct IDirect3DCubeTexture8 *LPDIRECT3DCUBETEXTURE8, *PDIRECT3DCUBETEXTURE8;
+          typedef struct IDirect3DVolumeTexture8 *LPDIRECT3DVOLUMETEXTURE8, *PDIRECT3DVOLUMETEXTURE8;
+          typedef struct IDirect3DVertexBuffer8 *LPDIRECT3DVERTEXBUFFER8, *PDIRECT3DVERTEXBUFFER8;
+          typedef struct IDirect3DIndexBuffer8 *LPDIRECT3DINDEXBUFFER8, *PDIRECT3DINDEXBUFFER8;
+          typedef struct IDirect3DSurface8 *LPDIRECT3DSURFACE8, *PDIRECT3DSURFACE8;
+          typedef struct IDirect3DVolume8 *LPDIRECT3DVOLUME8, *PDIRECT3DVOLUME8;
+          typedef struct IDirect3DSwapChain8 *LPDIRECT3DSWAPCHAIN8, *PDIRECT3DSWAPCHAIN8;
+          #define D3D_OK 0L
+          #define D3D_SDK_VERSION 220
+          #define D3DDEVTYPE_HAL 1
+          #define D3DDEVTYPE_REF 2
+          #define D3DCREATE_SOFTWARE_VERTEXPROCESSING 0x00000020L
+          #define D3DCREATE_HARDWARE_VERTEXPROCESSING 0x00000040L
+          #define D3DCREATE_MIXED_VERTEXPROCESSING 0x00000080L
+          #define D3DPT_POINTLIST 1
+          #define D3DPT_LINELIST 2
+          #define D3DPT_LINESTRIP 3
+          #define D3DPT_TRIANGLELIST 4
+          #define D3DPT_TRIANGLESTRIP 5
+          #define D3DPT_TRIANGLEFAN 6
+          #define D3DUSAGE_RENDERTARGET 0x00000001L
+          #define D3DUSAGE_DEPTHSTENCIL 0x00000002L
+          #define D3DUSAGE_DYNAMIC 0x00000200L
+          #define D3DLOCK_READONLY 0x00000010L
+          #define D3DLOCK_DISCARD 0x00002000L
+          #define D3DLOCK_NOOVERWRITE 0x00001000L
+          #define D3DCLEAR_TARGET 0x00000001L
+          #define D3DCLEAR_ZBUFFER 0x00000002L
+          #define D3DCLEAR_STENCIL 0x00000004L
+          #define D3DFVF_RESERVED0 0x001U
+          #define D3DFVF_POSITION_MASK 0x00EU
+          #define D3DFVF_XYZ 0x002U
+          #define D3DFVF_XYZRHW 0x004U
+          #define D3DFVF_XYZB1 0x006U
+          #define D3DFVF_XYZB2 0x008U
+          #define D3DFVF_XYZB3 0x00AU
+          #define D3DFVF_XYZB4 0x00CU
+          #define D3DFVF_XYZB5 0x00EU
+          #define D3DFVF_NORMAL 0x010U
+          #define D3DFVF_PSIZE 0x020U
+          #define D3DFVF_DIFFUSE 0x040U
+          #define D3DFVF_SPECULAR 0x080U
+          #define D3DFVF_TEXCOUNT_MASK 0xf00U
+          #define D3DFVF_TEXCOUNT_SHIFT 8
+          #define D3DFVF_TEX0 0x000U
+          #define D3DFVF_TEX1 0x100U
+          #define D3DFVF_TEX2 0x200U
+          #define D3DFVF_TEX3 0x300U
+          #define D3DFVF_TEX4 0x400U
+          #define D3DFVF_TEX5 0x500U
+          #define D3DFVF_TEX6 0x600U
+          #define D3DFVF_TEX7 0x700U
+          #define D3DFVF_TEX8 0x800U
+          #define D3DFVF_LASTBETA_UBYTE4 0x1000U
+          #define D3DERR_WRONGTEXTUREFORMAT ((HRESULT)0x88760866L)
+          #define D3DERR_UNSUPPORTEDCOLOROPERATION ((HRESULT)0x88760867L)
+          #define D3DERR_UNSUPPORTEDCOLORARG ((HRESULT)0x88760868L)
+          #define D3DERR_UNSUPPORTEDALPHAOPERATION ((HRESULT)0x88760869L)
+          #define D3DERR_UNSUPPORTEDALPHAARG ((HRESULT)0x8876086AL)
+          #define D3DERR_TOOMANYOPERATIONS ((HRESULT)0x8876086BL)
+          #define D3DERR_CONFLICTINGTEXTUREFILTER ((HRESULT)0x8876086CL)
+          #define D3DERR_UNSUPPORTEDFACTORVALUE ((HRESULT)0x8876086DL)
+          #define D3DERR_CONFLICTINGRENDERSTATE ((HRESULT)0x8876086EL)
+          #define D3DERR_UNSUPPORTEDTEXTUREFILTER ((HRESULT)0x8876086FL)
+          #define D3DERR_CONFLICTINGTEXTUREPALETTE ((HRESULT)0x88760870L)
+          #define D3DERR_NOTFOUND ((HRESULT)0x88760873L)
+          #define D3DERR_MOREDATA ((HRESULT)0x88760874L)
+          #define D3DERR_DEVICELOST ((HRESULT)0x88760876L)
+          #define D3DERR_DEVICENOTRESET ((HRESULT)0x88760877L)
+          #define D3DERR_NOTAVAILABLE ((HRESULT)0x88760878L)
+          #define D3DERR_OUTOFVIDEOMEMORY ((HRESULT)0x8876087CL)
+          #define D3DERR_INVALIDDEVICE ((HRESULT)0x8876087EL)
+          #define D3DERR_INVALIDCALL ((HRESULT)0x8876087FL)
+          #define D3DERR_DRIVERINVALIDCALL ((HRESULT)0x88760880L)
+          #define D3DCOLOR_ARGB(a,r,g,b) ((D3DCOLOR)(((((a)&0xffu)<<24)|(((r)&0xffu)<<16)|(((g)&0xffu)<<8)|((b)&0xffu))))
+          #define D3DCOLOR_RGBA(r,g,b,a) D3DCOLOR_ARGB(a,r,g,b)
+          #define D3DCOLOR_XRGB(r,g,b) D3DCOLOR_ARGB(0xffu,r,g,b)
+          D3DEOF
+          COMPAT_CMAKE="$ROOT/GeneralsMD/Code/CompatLib/CMakeLists.txt"
+          if [ -f "$COMPAT_CMAKE" ]; then
+            cat << 'PYEOF' > "$BUILD_DIR/patch.py"
+          import re, sys
+          from pathlib import Path
+          p = Path(sys.argv[1])
+          inc, winc = sys.argv[2], sys.argv[3]
+          s = p.read_text(errors="ignore")
+          h = (
+              'set(GLM_FOUND TRUE CACHE BOOL "" FORCE)\n'
+              'set(GLM_INCLUDE_DIRS "' + inc + '" CACHE PATH "" FORCE)\n'
+              'include_directories("' + inc + '" "' + winc + '")\n'
+              'if(NOT TARGET glm::glm)\nadd_library(glm::glm INTERFACE IMPORTED)\nset_target_properties(glm::glm PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "' + inc + '")\nendif()\n'
+              'if(NOT TARGET glm::glm-header-only)\nadd_library(glm::glm-header-only INTERFACE IMPORTED)\nset_target_properties(glm::glm-header-only PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "' + inc + '")\nendif()\n'
+          )
+          s = re.sub(r"find_package\s*\(\s*glm[^\)]*\)", "# glm handled", s, flags=re.I)
+          s = re.sub(r"message\s*\([^\)]*(?:GLM|d3dx8|Homebrew|export set)[^\)]*\)", "# glm bypassed", s, flags=re.I|re.S)
+          p.write_text(h + s)
+          PYEOF
+            python3 "$BUILD_DIR/patch.py" "$COMPAT_CMAKE" "$GLM_PREFIX/include" "$EXTRA_INC"
+          fi
+          if [ -f "$ROOT/CMakeLists.txt" ]; then
+            cmake -S "$ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DSAGE_USE_SDL3=ON \
+              -DCMAKE_PREFIX_PATH="$CURL_CMAKE_DIR;$GLM_PREFIX;$CURL_PREFIX;/opt/homebrew" \
+              -DCURL_DIR="$CURL_CMAKE_DIR" \
+              -DCURL_LIBRARY="$CURL_PREFIX/lib/libcurl.dylib" \
+              -DCURL_INCLUDE_DIR="$CURL_PREFIX/include" \
+              -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined -ferror-limit=0" \
+              -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined -ferror-limit=0"
+            ninja -C "$BUILD_DIR/cmake" -k 1
+          fi
+          if [ -f "$ROOT/ios/project.yml" ]; then
+            cd "$ROOT/ios"
+            xcodegen generate
+            xcodebuild \
+              -project GeneralsXZH.xcodeproj \
+              -scheme GeneralsXZH \
+              -sdk iphoneos \
+              -configuration Release \
+              -derivedDataPath "$BUILD_DIR/derived" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              AD_HOC_CODE_SIGNING_ALLOWED=YES \
+              build
+          fi
+          APP_PATH=$(find "$BUILD_DIR" -name "*.app" -type d | head -n 1)
+          if [ -n "$APP_PATH" ]; then
+            ls -lh "$APP_PATH"
+            ENGINE_BIN=$(find "$BUILD_DIR/cmake" -type f -perm +111 \( -name "*generals*" -o -name "*Generals*" -o -name "*z_generals*" \) 2>/dev/null | head -n 1 || true)
+            if [ -n "$ENGINE_BIN" ]; then
+              APP_BIN_NAME=$(basename "$APP_PATH" .app)
+              cp -f "$ENGINE_BIN" "$APP_PATH/$APP_BIN_NAME"
+              chmod +x "$APP_PATH/$APP_BIN_NAME"
+            fi
+            cp -R "$APP_PATH" "$IPA_ROOT/Payload/"
+            cd "$IPA_ROOT"
+            zip -r -y "$(pwd)/../GeneralsXZH.ipa" Payload
+            ls -lh "$(pwd)/../GeneralsXZH.ipa"
+          else
+            echo "ERROR: No .app bundle was produced."
+            exit 1
+          fi
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GeneralsXZH-iOS-IPA
+          path: GeneralsXZH.ipa
+          if-no-files-found: error
