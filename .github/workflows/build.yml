@@ -22,7 +22,7 @@ jobs:
 
       - name: Install tools
         run: |
-          brew install xcodegen cmake ninja sdl3
+          brew install xcodegen cmake ninja sdl3 curl
 
       - name: Build engine and generate iOS IPA
         run: |
@@ -31,10 +31,15 @@ jobs:
           BUILD_DIR="$(pwd)/build_out"
           IPA_ROOT="$(pwd)/ipa_package"
           mkdir -p "$BUILD_DIR" "$IPA_ROOT/Payload"
+          CURL_PREFIX="$(brew --prefix curl)"
 
           if [ -f "$ROOT/CMakeLists.txt" ]; then
-            echo "=== Configuring CMake with SDL3 ==="
-            cmake -S "$ROOT" -B "$BUILD_DIR/cmake" -G Ninja -DCMAKE_BUILD_TYPE=Release -DSAGE_USE_SDL3=ON
+            echo "=== Configuring CMake with SDL3 and CURL ==="
+            cmake -S "$ROOT" -B "$BUILD_DIR/cmake" -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DSAGE_USE_SDL3=ON \
+              -DCMAKE_PREFIX_PATH="$CURL_PREFIX" \
+              -DCURL_DIR="$CURL_PREFIX/lib/cmake/CURL"
             echo "=== Building CMake targets ==="
             cmake --build "$BUILD_DIR/cmake" --parallel
           fi
