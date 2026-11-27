@@ -82,6 +82,17 @@ jobs:
             BYTE peFlags;
           } PALETTEENTRY, *PPALETTEENTRY, *LPPALETTEENTRY;
           typedef const PALETTEENTRY *LPCPALETTEENTRY;
+          typedef struct tagRECT {
+            LONG left;
+            LONG top;
+            LONG right;
+            LONG bottom;
+          } RECT, *PRECT, *LPRECT;
+          typedef const RECT *LPCRECT;
+          typedef struct tagPOINT {
+            LONG x;
+            LONG y;
+          } POINT, *PPOINT, *LPPOINT;
           typedef struct _MEMORYSTATUS {
             DWORD dwLength;
             DWORD dwMemoryLoad;
@@ -151,13 +162,56 @@ jobs:
             float Range, Falloff, Attenuation0, Attenuation1, Attenuation2, Theta, Phi;
           } D3DLIGHT8;
           typedef struct _D3DMATERIAL8 { D3DCOLORVALUE Diffuse, Ambient, Specular, Emissive; float Power; } D3DMATERIAL8;
+          typedef struct _D3DSURFACE_DESC {
+            DWORD Format; DWORD Type; DWORD Usage; DWORD Pool; UINT Size;
+            DWORD MultiSampleType; UINT Width; UINT Height;
+          } D3DSURFACE_DESC;
+          typedef struct _D3DVOLUME_DESC {
+            DWORD Format; DWORD Type; DWORD Usage; DWORD Pool;
+            UINT Width; UINT Height; UINT Depth;
+          } D3DVOLUME_DESC;
+          typedef struct _D3DLOCKED_RECT { INT Pitch; void* pBits; } D3DLOCKED_RECT;
+          typedef struct _D3DLOCKED_BOX { INT RowPitch; INT SlicePitch; void* pBits; } D3DLOCKED_BOX;
           typedef enum _D3DFORMAT { D3DFMT_UNKNOWN = 0, D3DFMT_A8R8G8B8 = 21, D3DFMT_X8R8G8B8 = 22, D3DFMT_R5G6B5 = 23, D3DFMT_D24S8 = 75, D3DFMT_FORCE_DWORD = 0x7fffffff } D3DFORMAT;
           typedef enum _D3DPOOL { D3DPOOL_DEFAULT = 0, D3DPOOL_MANAGED = 1, D3DPOOL_SYSTEMMEM = 2, D3DPOOL_FORCE_DWORD = 0x7fffffff } D3DPOOL;
           typedef enum _D3DRESOURCETYPE { D3DRTYPE_SURFACE = 1, D3DRTYPE_VOLUME = 2, D3DRTYPE_TEXTURE = 3, D3DRTYPE_VOLUMETEXTURE = 4, D3DRTYPE_CUBETEXTURE = 5, D3DRTYPE_VERTEXBUFFER = 6, D3DRTYPE_INDEXBUFFER = 7, D3DRTYPE_FORCE_DWORD = 0x7fffffff } D3DRESOURCETYPE;
-          struct IDirect3D8; struct IDirect3DDevice8; struct IDirect3DResource8;
-          struct IDirect3DBaseTexture8; struct IDirect3DTexture8; struct IDirect3DCubeTexture8;
-          struct IDirect3DVolumeTexture8; struct IDirect3DVertexBuffer8; struct IDirect3DIndexBuffer8;
-          struct IDirect3DSurface8; struct IDirect3DVolume8; struct IDirect3DSwapChain8;
+          struct IDirect3D8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
+          struct IDirect3DDevice8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
+          struct IDirect3DResource8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
+          struct IDirect3DBaseTexture8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            DWORD SetLOD(DWORD){return 0;} DWORD GetLOD(){return 0;} DWORD GetLevelCount(){return 1;}
+          };
+          struct IDirect3DTexture8 : public IDirect3DBaseTexture8 {
+            HRESULT GetLevelDesc(UINT, D3DSURFACE_DESC*){return S_OK;}
+            HRESULT LockRect(UINT, D3DLOCKED_RECT*, const RECT*, DWORD){return S_OK;}
+            HRESULT UnlockRect(UINT){return S_OK;}
+          };
+          struct IDirect3DCubeTexture8 : public IDirect3DBaseTexture8 {
+            HRESULT GetLevelDesc(UINT, D3DSURFACE_DESC*){return S_OK;}
+            HRESULT LockRect(DWORD, UINT, D3DLOCKED_RECT*, const RECT*, DWORD){return S_OK;}
+            HRESULT UnlockRect(DWORD, UINT){return S_OK;}
+          };
+          struct IDirect3DVolumeTexture8 : public IDirect3DBaseTexture8 {
+            HRESULT GetLevelDesc(UINT, D3DVOLUME_DESC*){return S_OK;}
+            HRESULT LockBox(UINT, D3DLOCKED_BOX*, const void*, DWORD){return S_OK;}
+            HRESULT UnlockBox(UINT){return S_OK;}
+          };
+          struct IDirect3DVertexBuffer8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
+          struct IDirect3DIndexBuffer8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
+          struct IDirect3DSurface8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            HRESULT GetDesc(D3DSURFACE_DESC*){return S_OK;}
+            HRESULT LockRect(D3DLOCKED_RECT*, const RECT*, DWORD){return S_OK;}
+            HRESULT UnlockRect(){return S_OK;}
+          };
+          struct IDirect3DVolume8 {
+            ULONG AddRef(){return 1;} ULONG Release(){return 0;}
+            HRESULT GetDesc(D3DVOLUME_DESC*){return S_OK;}
+            HRESULT LockBox(D3DLOCKED_BOX*, const void*, DWORD){return S_OK;}
+            HRESULT UnlockBox(){return S_OK;}
+          };
+          struct IDirect3DSwapChain8 { ULONG AddRef(){return 1;} ULONG Release(){return 0;} };
           typedef struct IDirect3D8 *LPDIRECT3D8, *PDIRECT3D8;
           typedef struct IDirect3DDevice8 *LPDIRECT3DDEVICE8, *PDIRECT3DDEVICE8;
           typedef struct IDirect3DResource8 *LPDIRECT3DRESOURCE8, *PDIRECT3DRESOURCE8;
@@ -236,8 +290,8 @@ jobs:
               -DCURL_DIR="$CURL_CMAKE_DIR" \
               -DCURL_LIBRARY="$CURL_PREFIX/lib/libcurl.dylib" \
               -DCURL_INCLUDE_DIR="$CURL_PREFIX/include" \
-              -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined" \
-              -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined"
+              -DCMAKE_CXX_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined -ferror-limit=0" \
+              -DCMAKE_C_FLAGS="-I$GLM_PREFIX/include -I$EXTRA_INC -Wno-macro-redefined -ferror-limit=0"
             echo "=== Building CMake targets ==="
             ninja -C "$BUILD_DIR/cmake" -k 1
           fi
@@ -261,4 +315,24 @@ jobs:
           if [ -n "$APP_PATH" ]; then
             echo "=== Found app: $APP_PATH ==="
             ls -lh "$APP_PATH"
-            ENGINE_BIN=$(find "$BUILD_DIR/cmake" -type f -perm +111 \( -name "*generals*" -o
+            ENGINE_BIN=$(find "$BUILD_DIR/cmake" -type f -perm +111 \( -name "*generals*" -o -name "*Generals*" -o -name "*z_generals*" \) 2>/dev/null | head -n 1 || true)
+            if [ -n "$ENGINE_BIN" ]; then
+              echo "Replacing binary with: $ENGINE_BIN"
+              APP_BIN_NAME=$(basename "$APP_PATH" .app)
+              cp -f "$ENGINE_BIN" "$APP_PATH/$APP_BIN_NAME"
+              chmod +x "$APP_PATH/$APP_BIN_NAME"
+            fi
+            cp -R "$APP_PATH" "$IPA_ROOT/Payload/"
+            cd "$IPA_ROOT"
+            zip -r -y "$(pwd)/../GeneralsXZH.ipa" Payload
+            ls -lh "$(pwd)/../GeneralsXZH.ipa"
+          else
+            echo "ERROR: No .app bundle was produced."
+            exit 1
+          fi
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GeneralsXZH-iOS-IPA
+          path: GeneralsXZH.ipa
+          if-no-files-found: error
