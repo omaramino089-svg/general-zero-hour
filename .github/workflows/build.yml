@@ -64,6 +64,24 @@ jobs:
           #include "../ios_sage_compat.h"
           BTCORE
 
+          cat > build_out/ios_compat_inc/Lib/trig.h <<'TRIGEOF'
+          #pragma once
+          #include "../ios_sage_compat.h"
+          #ifdef __cplusplus
+          #include <cmath>
+          inline Real Sin(Real x) { return std::sin(x); }
+          inline Real Cos(Real x) { return std::cos(x); }
+          inline Real Tan(Real x) { return std::tan(x); }
+          inline Real ASin(Real x) { return std::asin(x); }
+          inline Real ACos(Real x) { return std::acos(x); }
+          inline Real ATan(Real x) { return std::atan(x); }
+          inline Real ATan2(Real y, Real x) { return std::atan2(y, x); }
+          inline Real Sqrt(Real x) { return std::sqrt(x); }
+          #else
+          #include <math.h>
+          #endif
+          TRIGEOF
+
           cat > build_out/ios_compat_inc/ios_c_compat.h <<'CCEOF'
           #pragma once
           #include <stdint.h>
